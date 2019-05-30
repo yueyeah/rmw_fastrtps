@@ -50,6 +50,7 @@ add_library(rmw_fastrtps_shared_cpp
   src/custom_publisher_info.cpp
   src/custom_subscriber_info.cpp
   src/demangle.cpp
+  src/find_and_replace.cpp
   src/namespace_prefix.cpp
   src/qos.cpp
   src/rmw_client.cpp

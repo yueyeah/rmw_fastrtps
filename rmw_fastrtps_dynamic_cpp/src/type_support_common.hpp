@@ -15,7 +15,6 @@
 #ifndef TYPE_SUPPORT_COMMON_HPP_
 #define TYPE_SUPPORT_COMMON_HPP_
 
-#include <regex>
 #include <sstream>
 #include <string>
 
@@ -25,6 +24,7 @@
 #include "rmw/error_handling.h"
 
 #include "rmw_fastrtps_shared_cpp/TypeSupport.hpp"
+#include "rmw_fastrtps_shared_cpp/find_and_replace.hpp"
 
 #include "rmw_fastrtps_dynamic_cpp/MessageTypeSupport.hpp"
 #include "rmw_fastrtps_dynamic_cpp/ServiceTypeSupport.hpp"
@@ -85,7 +85,7 @@ _create_type_name(
   std::ostringstream ss;
   std::string message_namespace(members->message_namespace_);
   // Find and replace C namespace separator with C++, in case this is using C typesupport
-  message_namespace = std::regex_replace(message_namespace, std::regex("__"), "::");
+  message_namespace = find_and_replace(message_namespace, "__", "::");
   std::string message_name(members->message_name_);
   if (!message_namespace.empty()) {
     ss << message_namespace << "::";
