@@ -1,4 +1,4 @@
-// Copyright 2017 Open Source Robotics Foundation, Inc.
+// Copyright 2017-2019 Open Source Robotics Foundation, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,27 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "rmw_fastrtps_cpp/get_participant.hpp"
+#ifndef RMW_FASTRTPS_CPP__PUBLISHER_HPP_
+#define RMW_FASTRTPS_CPP__PUBLISHER_HPP_
 
+#include "rmw/rmw.h"
 #include "rmw_fastrtps_shared_cpp/custom_participant_info.hpp"
-#include "rmw_fastrtps_shared_cpp/rmw_context_impl.h"
-
-#include "rmw_fastrtps_cpp/identifier.hpp"
 
 namespace rmw_fastrtps_cpp
 {
 
-eprosima::fastrtps::Participant *
-get_participant(rmw_node_t * node)
-{
-  if (!node) {
-    return nullptr;
-  }
-  if (node->implementation_identifier != eprosima_fastrtps_identifier) {
-    return nullptr;
-  }
-  auto impl = static_cast<CustomParticipantInfo *>(node->context->impl->participant_info);
-  return impl->participant;
-}
+rmw_publisher_t *
+create_publisher(
+  const CustomParticipantInfo * participant_info,
+  const rosidl_message_type_support_t * type_supports,
+  const char * topic_name,
+  const rmw_qos_profile_t * qos_policies,
+  bool keyed,
+  bool create_publisher_listener);
 
 }  // namespace rmw_fastrtps_cpp
+
+#endif  // RMW_FASTRTPS_CPP__PUBLISHER_HPP_

@@ -41,6 +41,7 @@ typedef struct CustomSubscriberInfo : public CustomEventInfo
   eprosima::fastrtps::Subscriber * subscriber_;
   SubListener * listener_;
   rmw_fastrtps_shared_cpp::TypeSupport * type_support_;
+  rmw_gid_t subscription_gid;
   const char * typesupport_identifier_;
 
   RMW_FASTRTPS_SHARED_CPP_PUBLIC
@@ -85,7 +86,6 @@ public:
 #else
     uint64_t unread_count = sub->get_unread_count();
 #endif
-
     std::lock_guard<std::mutex> lock(internalMutex_);
 
     // the change to liveliness_lost_count_ needs to be mutually exclusive with

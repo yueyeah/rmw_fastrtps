@@ -1,3 +1,4 @@
+// Copyright 2019 Open Source Robotics Foundation, Inc.
 // Copyright 2016-2018 Proyectos y Sistemas de Mantenimiento SL (eProsima).
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +38,7 @@ rmw_create_node(
   const char * name,
   const char * namespace_,
   size_t domain_id,
-  const rmw_node_security_options_t * security_options,
+  const rmw_security_options_t * security_options,
   bool localhost_only)
 {
   RCUTILS_CHECK_ARGUMENT_FOR_NULL(context, NULL);
@@ -47,8 +48,9 @@ rmw_create_node(
     eprosima_fastrtps_identifier,
     // TODO(wjwwood): replace this with RMW_RET_INCORRECT_RMW_IMPLEMENTATION when refactored
     return NULL);
+
   return rmw_fastrtps_shared_cpp::__rmw_create_node(
-    eprosima_fastrtps_identifier, name, namespace_, domain_id, security_options, localhost_only);
+    context, eprosima_fastrtps_identifier, name, namespace_);
 }
 
 rmw_ret_t
