@@ -16,6 +16,8 @@
 #define RMW_FASTRTPS_CPP__SUBSCRIPTION_HPP_
 
 #include "rmw/rmw.h"
+#include "rmw/subscription_options.h"
+
 #include "rmw_fastrtps_shared_cpp/custom_participant_info.hpp"
 
 namespace rmw_fastrtps_cpp
@@ -27,7 +29,7 @@ create_subscription(
   const rosidl_message_type_support_t * type_supports,
   const char * topic_name,
   const rmw_qos_profile_t * qos_policies,
-  bool ignore_local_publications,
+  const rmw_subscription_options_t * subscription_options,
   bool keyed,
   bool create_subscription_listener);
 

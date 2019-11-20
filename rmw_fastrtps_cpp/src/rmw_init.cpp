@@ -18,6 +18,7 @@
 #include "rmw/impl/cpp/macros.hpp"
 #include "rmw/init.h"
 #include "rmw/init_options.h"
+#include "rmw/publisher_options.h"
 #include "rmw/rmw.h"
 
 #include "rmw_dds_common/context.hpp"
@@ -95,9 +96,13 @@ rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
   rmw_dds_common::Context * common_context = nullptr;
   CustomParticipantInfo * participant_info = nullptr;
   rmw_publisher_t * publisher = nullptr;
+  rmw_publisher_options_t publisher_options = rmw_get_default_publisher_options();
   rmw_ret_t ret = RMW_RET_OK;
   rmw_subscription_t * subscription = nullptr;
+  rmw_subscription_options_t subscription_options = rmw_get_default_subscription_options();
   rmw_qos_profile_t qos = rmw_qos_profile_default;
+
+  subscription_options.ignore_local_publications = true; // This is currently not implemented in fastrtps
 
   RCUTILS_CHECK_ARGUMENT_FOR_NULL(options, RMW_RET_INVALID_ARGUMENT);
   RCUTILS_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
@@ -149,6 +154,7 @@ rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
     rosidl_typesupport_cpp::get_message_type_support_handle<ParticipantEntitiesInfo>(),
     "_participant_info",
     &qos,
+    &publisher_options,
     false,  // our fastrtps typesupport doesn't support keyed topics
     true);  // don't create a publisher listener
   if (nullptr == publisher) {
@@ -161,7 +167,7 @@ rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
     rosidl_typesupport_cpp::get_message_type_support_handle<ParticipantEntitiesInfo>(),
     "_participant_info",
     &qos,
-    true,  // ignore_local_publications, currently not implemented
+    &subscription_options,
     false,  // our fastrtps typesupport doesn't support keyed topics
     true);  // don't create a subscriber listener
   if (nullptr == subscription) {

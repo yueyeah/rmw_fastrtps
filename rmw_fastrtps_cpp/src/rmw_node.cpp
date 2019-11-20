@@ -41,6 +41,9 @@ rmw_create_node(
   const rmw_security_options_t * security_options,
   bool localhost_only)
 {
+  (void)domain_id;
+  (void)security_options;
+  (void)localhost_only;
   RCUTILS_CHECK_ARGUMENT_FOR_NULL(context, NULL);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     init context,
