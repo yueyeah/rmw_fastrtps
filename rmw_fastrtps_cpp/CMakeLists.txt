@@ -132,7 +132,6 @@ if(BUILD_TESTING)
   ament_add_gtest(test_gid_message test/test_gid_message.cpp)
   if(TARGET test_gid_message)
     target_link_libraries(test_gid_message ${PROJECT_NAME})
-    # target_include_directories(test_gid_message ${PROJECT_NAME})
   endif()
 endif()
 

@@ -130,7 +130,7 @@ rmw_fastrtps_shared_cpp::create_participant(
   // Load default XML profile.
   Domain::getDefaultParticipantAttributes(participantAttrs);
 
-  if (RCL_NODE_OPTIONS_DEFAULT_DOMAIN_ID == domain_id) {
+  if (RMW_INIT_OPTIONS_DEFAULT_DOMAIN_ID == domain_id) {
     const char * ros_domain_id;
     // Find the domain ID set by the environment.
     const char * get_env_error_str = rcutils_get_env(ROS_DOMAIN_ID_VAR_NAME, &ros_domain_id);
