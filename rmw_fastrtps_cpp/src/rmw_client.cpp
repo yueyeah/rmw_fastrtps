@@ -234,7 +234,7 @@ fail:
     if (info->request_publisher_ != nullptr) {
       rmw_gid_t gid = rmw_fastrtps_shared_cpp::create_rmw_gid(
         eprosima_fastrtps_identifier, info->request_publisher_->getGuid());
-      common_context->graph_cache.deassociate_writer(
+      common_context->graph_cache.dissociate_writer(
         gid,
         common_context->gid,
         node->name,
@@ -245,7 +245,7 @@ fail:
     if (info->response_subscriber_ != nullptr) {
       rmw_gid_t gid = rmw_fastrtps_shared_cpp::create_rmw_gid(
         eprosima_fastrtps_identifier, info->response_subscriber_->getGuid());
-      common_context->graph_cache.deassociate_reader(
+      common_context->graph_cache.dissociate_reader(
         gid,
         common_context->gid,
         node->name,
