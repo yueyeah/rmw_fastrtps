@@ -34,7 +34,7 @@ RMW_FASTRTPS_SHARED_CPP_PUBLIC extern const std::vector<std::string> _ros_prefix
  * \param[in] name string that will be stripped from prefix
  * \param[in] prefix prefix to be stripped
  * \return name stripped of prefix, or
- * \return "" if name doesn't starti with prefix
+ * \return "" if name doesn't start with prefix
  */
 std::string
 _strip_prefix(const std::string & name, const std::string & prefix);

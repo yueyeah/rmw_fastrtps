@@ -94,7 +94,7 @@ _demangle_service_from_topic(
 std::string
 _demangle_service_from_topic(const std::string & topic_name)
 {
-  std::string demangled_topic = _demangle_service_reply_from_topic(topic_name);
+  const std::string demangled_topic = _demangle_service_reply_from_topic(topic_name);
   if ("" != demangled_topic) {
     return demangled_topic;
   }

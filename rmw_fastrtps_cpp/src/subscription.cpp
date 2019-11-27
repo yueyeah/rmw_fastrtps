@@ -154,7 +154,7 @@ create_subscription(
     goto fail;
   }
   memcpy(const_cast<char *>(rmw_subscription->topic_name), topic_name, strlen(topic_name) + 1);
-  
+
   rmw_subscription->options = *subscription_options;
   return rmw_subscription;
 

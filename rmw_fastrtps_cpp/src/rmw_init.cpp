@@ -102,7 +102,8 @@ rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
   rmw_subscription_options_t subscription_options = rmw_get_default_subscription_options();
   rmw_qos_profile_t qos = rmw_qos_profile_default;
 
-  subscription_options.ignore_local_publications = true; // This is currently not implemented in fastrtps
+  // This is currently not implemented in fastrtps
+  subscription_options.ignore_local_publications = true;
 
   RCUTILS_CHECK_ARGUMENT_FOR_NULL(options, RMW_RET_INVALID_ARGUMENT);
   RCUTILS_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
@@ -178,8 +179,6 @@ rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
     eprosima_fastrtps_identifier, participant_info->participant->getGuid());
   common_context->pub = publisher;
   common_context->sub = subscription;
-  // This is not more needed.
-  // node_cache.add_gid(common_context->gid);
   common_context->graph_cache.add_participant(common_context->gid);
 
   ret = rmw_fastrtps_cpp::run_listener_thread(context);

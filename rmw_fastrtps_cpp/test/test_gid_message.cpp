@@ -20,9 +20,7 @@
 #include "rosidl_generator_c/message_type_support_struct.h"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
-// #include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
 
-#define RMW_FASTRTPS_CPP_TYPESUPPORT_CPP rosidl_typesupport_fastrtps_cpp::typesupport_identifier
 using rmw_dds_common::msg::Gid;
 
 
@@ -36,7 +34,7 @@ TEST(Test_gid, get_typesupport) {
   const rosidl_message_type_support_t * type_support_1 =
     rosidl_typesupport_cpp::get_message_type_support_handle<Gid>();
   const rosidl_message_type_support_t * type_support_2 = get_message_typesupport_handle(
-    type_support_1, RMW_FASTRTPS_CPP_TYPESUPPORT_CPP);
+    type_support_1, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
 
   ASSERT_EQ(type_support_1->typesupport_identifier, type_support_2->typesupport_identifier);
   ASSERT_EQ(type_support_1->data, type_support_2->data);

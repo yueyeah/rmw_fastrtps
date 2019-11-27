@@ -21,7 +21,7 @@
 #include "rmw/types.h"
 #include "namespace_prefix.hpp"
 
-/// Construct a topic name according to proper conventions.
+/// Construct a topic name.
 /**
   * \param[in] prefix Required prefix for topic name.
   * \param[in] base Required name of the topic.

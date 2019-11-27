@@ -49,23 +49,31 @@ rmw_fastrtps_cpp::run_listener_thread(rmw_context_t * context)
   auto common_context = static_cast<rmw_dds_common::Context *>(context->impl->common);
   common_context->thread_is_running.store(true);
   common_context->listener_thread_gc = rmw_create_guard_condition(context);
+  auto clean = [ = ]() {
+      common_context->thread_is_running.store(false);
+      if (common_context->listener_thread_gc) {
+        if (RMW_RET_OK != rmw_destroy_guard_condition(common_context->listener_thread_gc)) {
+          RCUTILS_LOG_ERROR_NAMED(log_tag, "Failed to destroy guard condition");
+        }
+      }
+    };
   if (!common_context->listener_thread_gc) {
-    goto fail;
+    RMW_SET_ERROR_MSG("Failed to create guard condition");
+    clean();
+    return RMW_RET_ERROR;
   }
   try {
     common_context->listener_thread = std::thread(node_listener, context);
+  } catch (const std::exception & exc) {
+    RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("Failed to create std::thread: %s", exc.what());
+    clean();
+    return RMW_RET_ERROR;
   } catch (...) {
-    goto fail;
+    RMW_SET_ERROR_MSG("Failed to create std::thread");
+    clean();
+    return RMW_RET_ERROR;
   }
   return RMW_RET_OK;
-fail:
-  common_context->thread_is_running.store(false);
-  if (common_context->listener_thread_gc) {
-    if (RMW_RET_OK != rmw_destroy_guard_condition(common_context->listener_thread_gc)) {
-      RCUTILS_LOG_ERROR_NAMED(log_tag, "Failed to destroy guard condition");
-    }
-  }
-  return RMW_RET_ERROR;
 }
 
 rmw_ret_t
@@ -73,20 +81,24 @@ rmw_fastrtps_cpp::join_listener_thread(rmw_context_t * context)
 {
   auto common_context = static_cast<rmw_dds_common::Context *>(context->impl->common);
   common_context->thread_is_running.exchange(false);
-  if (RMW_RET_OK != rmw_trigger_guard_condition(common_context->listener_thread_gc)) {
-    goto fail;
+  rmw_ret_t rmw_ret = rmw_trigger_guard_condition(common_context->listener_thread_gc);
+  if (RMW_RET_OK != rmw_ret) {
+    return rmw_ret;
   }
   try {
     common_context->listener_thread.join();
+  } catch (const std::exception & exc) {
+    RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("Failed to join std::thread: %s", exc.what());
+    return RMW_RET_ERROR;
   } catch (...) {
-    goto fail;
+    RMW_SET_ERROR_MSG("Failed to join std::thread");
+    return RMW_RET_ERROR;
   }
-  if (RMW_RET_OK != rmw_destroy_guard_condition(common_context->listener_thread_gc)) {
-    goto fail;
+  rmw_ret = rmw_destroy_guard_condition(common_context->listener_thread_gc);
+  if (RMW_RET_OK != rmw_ret) {
+    return rmw_ret;
   }
   return RMW_RET_OK;
-fail:
-  return RMW_RET_ERROR;
 }
 
 static
