@@ -44,7 +44,6 @@ __rmw_get_topic_names_and_types(
   bool no_demangle,
   rmw_names_and_types_t * topic_names_and_types)
 {
-  fprintf(stderr, "HERE\n");
   if (!allocator) {
     RMW_SET_ERROR_MSG("allocator is null");
     return RMW_RET_INVALID_ARGUMENT;

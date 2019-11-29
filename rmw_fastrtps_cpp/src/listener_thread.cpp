@@ -156,7 +156,7 @@ node_listener(rmw_context_t * context)
       }
       if (taken) {
         // TODO(ivanpauno): Should the program be terminated if taken is false?
-        if (std::strncmp(
+        if (std::memcmp(
             reinterpret_cast<char *>(common_context->gid.data),
             reinterpret_cast<char *>(&msg.gid.data),
             RMW_GID_STORAGE_SIZE) == 0)
