@@ -155,7 +155,7 @@ rmw_fastrtps_shared_cpp::create_participant(
   const char * ros_local_host_env_val = NULL;
   bool localhost_only =
     rcutils_get_env("ROS_LOCALHOST_ONLY", &ros_local_host_env_val) == NULL &&
-        ros_local_host_env_val != NULL && strcmp(ros_local_host_env_val, "1") == 0;
+    ros_local_host_env_val != NULL && strcmp(ros_local_host_env_val, "1") == 0;
 
   if (localhost_only) {
     Locator_t local_network_interface_locator;
