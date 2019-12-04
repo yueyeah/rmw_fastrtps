@@ -51,13 +51,16 @@ __rmw_destroy_service(
   rmw_node_t * node,
   rmw_service_t * service)
 {
-  (void)node;
   if (!service) {
     RMW_SET_ERROR_MSG("service handle is null");
     return RMW_RET_ERROR;
   }
   if (service->implementation_identifier != identifier) {
     RMW_SET_ERROR_MSG("publisher handle not from this implementation");
+    return RMW_RET_ERROR;
+  }
+  if (!node) {
+    RMW_SET_ERROR_MSG("service handle is null");
     return RMW_RET_ERROR;
   }
   auto common_context = static_cast<rmw_dds_common::Context *>(node->context->impl->common);
