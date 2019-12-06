@@ -61,8 +61,6 @@ __rmw_destroy_publisher(
       static_cast<void *>(&msg),
       nullptr);
     if (RMW_RET_OK != rmw_ret) {
-      rmw_fastrtps_shared_cpp::__rmw_destroy_publisher(
-        identifier, node, publisher);
       return rmw_ret;
     }
   }
