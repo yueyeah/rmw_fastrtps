@@ -83,7 +83,7 @@ __rmw_destroy_service(
     rmw_ret_t rmw_ret = rmw_fastrtps_shared_cpp::__rmw_publish(
       identifier,
       common_context->pub,
-      static_cast<void *>(&msg),
+      &msg,
       nullptr);
     if (RMW_RET_OK != rmw_ret) {
       return rmw_ret;

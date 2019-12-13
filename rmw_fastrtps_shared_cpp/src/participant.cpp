@@ -117,8 +117,9 @@ fail:
 CustomParticipantInfo *
 rmw_fastrtps_shared_cpp::create_participant(
   const char * identifier,
-  const size_t domain_id,
+  size_t domain_id,
   const rmw_security_options_t * security_options,
+  bool localhost_only,
   rmw_dds_common::Context * common_context)
 {
   if (!security_options) {
@@ -130,32 +131,7 @@ rmw_fastrtps_shared_cpp::create_participant(
   // Load default XML profile.
   Domain::getDefaultParticipantAttributes(participantAttrs);
 
-  if (RMW_INIT_OPTIONS_DEFAULT_DOMAIN_ID == domain_id) {
-    const char * ros_domain_id;
-    // Find the domain ID set by the environment.
-    const char * get_env_error_str = rcutils_get_env(ROS_DOMAIN_ID_VAR_NAME, &ros_domain_id);
-    if (NULL != get_env_error_str) {
-      RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(
-        "Error getting env var '" RCUTILS_STRINGIFY(ROS_DOMAIN_ID_VAR_NAME) "': %s\n",
-        get_env_error_str);
-      return nullptr;
-    }
-    if (ros_domain_id) {
-      unsigned long number = strtoul(ros_domain_id, NULL, 0);  // NOLINT(runtime/int)
-      if (number == ULONG_MAX) {
-        RCUTILS_SET_ERROR_MSG("failed to interpret ROS_DOMAIN_ID as integral number");
-        return nullptr;
-      }
-      participantAttrs.rtps.builtin.domainId = static_cast<uint32_t>(number);
-    }
-  } else {
-    participantAttrs.rtps.builtin.domainId = static_cast<uint32_t>(domain_id);
-  }
-
-  const char * ros_local_host_env_val = NULL;
-  bool localhost_only =
-    rcutils_get_env("ROS_LOCALHOST_ONLY", &ros_local_host_env_val) == NULL &&
-    ros_local_host_env_val != NULL && strcmp(ros_local_host_env_val, "1") == 0;
+  participantAttrs.rtps.builtin.domainId = static_cast<uint32_t>(domain_id);
 
   if (localhost_only) {
     Locator_t local_network_interface_locator;

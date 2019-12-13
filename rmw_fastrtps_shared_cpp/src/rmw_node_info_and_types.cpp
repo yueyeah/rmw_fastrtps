@@ -93,8 +93,6 @@ rmw_ret_t __validate_input(
   return RMW_RET_OK;
 }
 
-using DemangleFunction = std::string (*)(const std::string &);
-using MangleFunction = DemangleFunction;
 using GetNamesAndTypesByNodeFunction = rmw_ret_t (*)(
   rmw_dds_common::Context *,
   const std::string &,

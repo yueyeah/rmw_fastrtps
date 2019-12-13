@@ -46,4 +46,7 @@ _demangle_service_reply_from_topic(const std::string & topic_name);
 std::string
 _demangle_service_type_only(const std::string & dds_type_name);
 
+using DemangleFunction = std::string (*)(const std::string &);
+using MangleFunction = DemangleFunction;
+
 #endif  // DEMANGLE_HPP_

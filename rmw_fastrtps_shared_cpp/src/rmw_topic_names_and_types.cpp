@@ -34,8 +34,6 @@
 namespace rmw_fastrtps_shared_cpp
 {
 
-using DemangleFunction = std::string (*)(const std::string &);
-
 rmw_ret_t
 __rmw_get_topic_names_and_types(
   const char * identifier,

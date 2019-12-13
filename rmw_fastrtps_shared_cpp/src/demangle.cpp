@@ -59,7 +59,7 @@ _demangle_if_ros_type(const std::string & dds_type_string)
 std::string
 _demangle_ros_topic_from_topic(const std::string & topic_name)
 {
-  return _strip_prefix(topic_name, ros_topic_prefix);
+  return _resolve_prefix(topic_name, ros_topic_prefix);
 }
 
 /// Return the service name for a given topic if it is part of one, else "".
@@ -67,7 +67,7 @@ std::string
 _demangle_service_from_topic(
   const std::string & prefix, const std::string & topic_name, std::string suffix)
 {
-  std::string service_name = _strip_prefix(topic_name, prefix);
+  std::string service_name = _resolve_prefix(topic_name, prefix);
   if ("" == service_name) {
     return "";
   }

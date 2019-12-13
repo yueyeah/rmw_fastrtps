@@ -29,7 +29,7 @@ const std::vector<std::string> _ros_prefixes =
 
 /// Returns `name` stripped of `prefix`.
 std::string
-_strip_prefix(const std::string & name, const std::string & prefix)
+_resolve_prefix(const std::string & name, const std::string & prefix)
 {
   if (name.rfind(prefix, 0) == 0 && name.at(prefix.length()) == '/') {
     return name.substr(prefix.length());

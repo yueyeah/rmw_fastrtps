@@ -14,7 +14,6 @@
 // limitations under the License.
 
 #include <limits>
-#include <vector>
 
 #include "qos_converter.hpp"
 #include "rmw_fastrtps_shared_cpp/qos.hpp"

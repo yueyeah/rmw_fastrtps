@@ -137,6 +137,7 @@ rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
     eprosima_fastrtps_identifier,
     options->domain_id,
     &options->security_options,
+    (options->localhost_only == RMW_LOCALHOST_ONLY_ENABLED) ? 1 : 0,
     common_context);
   if (nullptr == participant_info) {
     ret = RMW_RET_BAD_ALLOC;

@@ -27,8 +27,9 @@ namespace rmw_fastrtps_shared_cpp
 CustomParticipantInfo *
 create_participant(
   const char * identifier,
-  const size_t domain_id,
+  size_t domain_id,
   const rmw_security_options_t * security_options,
+  bool localhost_only,
   rmw_dds_common::Context * common_context);
 
 rmw_ret_t
