@@ -1,4 +1,4 @@
-// Copyright 2017 Open Source Robotics Foundation, Inc.
+// Copyright 2019 Open Source Robotics Foundation, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,26 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "rmw_fastrtps_dynamic_cpp/get_participant.hpp"
+#ifndef LISTENER_THREAD_HPP_
+#define LISTENER_THREAD_HPP_
 
-#include "rmw_fastrtps_shared_cpp/custom_participant_info.hpp"
-#include "rmw_fastrtps_shared_cpp/rmw_context_impl.h"
-#include "rmw_fastrtps_dynamic_cpp/identifier.hpp"
+#include "rmw/init.h"
 
 namespace rmw_fastrtps_dynamic_cpp
 {
 
-eprosima::fastrtps::Participant *
-get_participant(rmw_node_t * node)
-{
-  if (!node) {
-    return nullptr;
-  }
-  if (node->implementation_identifier != eprosima_fastrtps_identifier) {
-    return nullptr;
-  }
-  auto impl = static_cast<CustomParticipantInfo *>(node->context->impl->participant_info);
-  return impl->participant;
-}
+rmw_ret_t
+run_listener_thread(rmw_context_t * context);
+
+rmw_ret_t
+join_listener_thread(rmw_context_t * context);
 
 }  // namespace rmw_fastrtps_dynamic_cpp
+#endif  // LISTENER_THREAD_HPP_

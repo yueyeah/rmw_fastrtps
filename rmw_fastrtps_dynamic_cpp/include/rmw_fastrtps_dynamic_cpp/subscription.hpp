@@ -1,4 +1,4 @@
-// Copyright 2017 Open Source Robotics Foundation, Inc.
+// Copyright 2019 Open Source Robotics Foundation, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,26 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "rmw_fastrtps_dynamic_cpp/get_participant.hpp"
+#ifndef RMW_FASTRTPS_DYNAMIC_CPP__SUBSCRIPTION_HPP_
+#define RMW_FASTRTPS_DYNAMIC_CPP__SUBSCRIPTION_HPP_
+
+#include "rmw/rmw.h"
+#include "rmw/subscription_options.h"
 
 #include "rmw_fastrtps_shared_cpp/custom_participant_info.hpp"
-#include "rmw_fastrtps_shared_cpp/rmw_context_impl.h"
-#include "rmw_fastrtps_dynamic_cpp/identifier.hpp"
 
 namespace rmw_fastrtps_dynamic_cpp
 {
 
-eprosima::fastrtps::Participant *
-get_participant(rmw_node_t * node)
-{
-  if (!node) {
-    return nullptr;
-  }
-  if (node->implementation_identifier != eprosima_fastrtps_identifier) {
-    return nullptr;
-  }
-  auto impl = static_cast<CustomParticipantInfo *>(node->context->impl->participant_info);
-  return impl->participant;
-}
+rmw_subscription_t *
+create_subscription(
+  const CustomParticipantInfo * participant_info,
+  const rosidl_message_type_support_t * type_supports,
+  const char * topic_name,
+  const rmw_qos_profile_t * qos_policies,
+  const rmw_subscription_options_t * subscription_options,
+  bool keyed,
+  bool create_subscription_listener);
 
 }  // namespace rmw_fastrtps_dynamic_cpp
+
+#endif  // RMW_FASTRTPS_DYNAMIC_CPP__SUBSCRIPTION_HPP_
