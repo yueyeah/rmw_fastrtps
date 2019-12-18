@@ -166,7 +166,6 @@ rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
   // If we would have support for keyed topics, this could be KEEP_LAST and depth 1.
   qos.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
   qos.depth = 1024;
-  // using same qos for the subscription
   subscription = rmw_fastrtps_cpp::create_subscription(
     participant_info,
     rosidl_typesupport_cpp::get_message_type_support_handle<ParticipantEntitiesInfo>(),

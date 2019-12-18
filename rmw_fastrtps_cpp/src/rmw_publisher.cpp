@@ -21,23 +21,14 @@
 
 #include "rmw_fastrtps_shared_cpp/custom_participant_info.hpp"
 #include "rmw_fastrtps_shared_cpp/custom_publisher_info.hpp"
-#include "rmw_fastrtps_shared_cpp/names.hpp"
-#include "rmw_fastrtps_shared_cpp/namespace_prefix.hpp"
-#include "rmw_fastrtps_shared_cpp/qos.hpp"
 #include "rmw_fastrtps_shared_cpp/rmw_common.hpp"
 #include "rmw_fastrtps_shared_cpp/rmw_context_impl.h"
 
-#include "rmw_fastrtps_cpp/publisher.hpp"
 #include "rmw_fastrtps_cpp/identifier.hpp"
+#include "rmw_fastrtps_cpp/publisher.hpp"
 
 #include "rmw_dds_common/context.hpp"
 #include "rmw_dds_common/msg/participant_entities_info.hpp"
-
-#include "type_support_common.hpp"
-
-using Domain = eprosima::fastrtps::Domain;
-using Participant = eprosima::fastrtps::Participant;
-using TopicDataType = eprosima::fastrtps::TopicDataType;
 
 extern "C"
 {
@@ -90,6 +81,7 @@ rmw_create_publisher(
     publisher_options,
     false,
     true);
+
   if (!publisher) {
     return nullptr;
   }

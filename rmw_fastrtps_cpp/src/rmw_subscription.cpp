@@ -28,8 +28,6 @@
 #include "rmw_fastrtps_cpp/identifier.hpp"
 #include "rmw_fastrtps_cpp/subscription.hpp"
 
-#include "type_support_common.hpp"
-
 extern "C"
 {
 rmw_ret_t

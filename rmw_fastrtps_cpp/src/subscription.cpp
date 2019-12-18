@@ -164,9 +164,7 @@ fail:
     delete info->listener_;
     delete info;
   }
-  if (rmw_subscription) {
-    rmw_subscription_free(rmw_subscription);
-  }
+  rmw_subscription_free(rmw_subscription);
   return nullptr;
 }
 }  // namespace rmw_fastrtps_cpp
