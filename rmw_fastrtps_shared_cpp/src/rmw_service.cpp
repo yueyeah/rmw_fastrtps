@@ -60,7 +60,7 @@ __rmw_destroy_service(
     return RMW_RET_ERROR;
   }
   if (!node) {
-    RMW_SET_ERROR_MSG("service handle is null");
+    RMW_SET_ERROR_MSG("node handle is null");
     return RMW_RET_ERROR;
   }
   auto common_context = static_cast<rmw_dds_common::Context *>(node->context->impl->common);

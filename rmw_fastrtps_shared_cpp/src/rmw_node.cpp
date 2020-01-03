@@ -160,25 +160,8 @@ __rmw_node_assert_liveliness(
 {
   (void)identifier;
   (void)node;
-  // RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-  // RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-  //   node,
-  //   node->implementation_identifier,
-  //   identifier,
-  //   return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-  // auto node_info = static_cast<CustomParticipantInfo *>(node->data);
-  // if (nullptr == node_info) {
-  //   RMW_SET_ERROR_MSG("node info handle is null");
-  //   return RMW_RET_ERROR;
-  // }
-  // if (nullptr == node_info->participant) {
-  //   RMW_SET_ERROR_MSG("node internal participant is invalid");
-  //   return RMW_RET_ERROR;
-  // }
-
-  // node_info->participant->assert_liveliness();
-  return RMW_RET_OK;
+  return RMW_RET_UNSUPPORTED;
 }
 
 const rmw_guard_condition_t *
