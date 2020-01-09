@@ -12,20 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RMW_FASTRTPS_SHARED_CPP__RMW_CONTEXT_IMPL_H_
-#define RMW_FASTRTPS_SHARED_CPP__RMW_CONTEXT_IMPL_H_
+#ifndef RMW_FASTRTPS_CPP__REGISTER_NODE_HPP_
+#define RMW_FASTRTPS_CPP__REGISTER_NODE_HPP_
 
-#include <mutex>
+#include "rmw/init.h"
+#include "rmw/types.h"
 
-extern "C"
+namespace rmw_fastrtps_cpp
 {
-typedef struct rmw_context_impl_t
-{
-  void * common;
-  void * participant_info;
-  std::mutex mutex;
-  uint64_t count;
-} rmw_context_impl_t;
-}  // extern "C"
 
-#endif  // RMW_FASTRTPS_SHARED_CPP__RMW_CONTEXT_IMPL_H_
+/// Register node in context.
+/**
+ * Function that should be called when creating a node,
+ * before using `context->impl`.
+ */
+rmw_ret_t
+register_node(rmw_context_t * context);
+
+/// Unregister node in context.
+/**
+ * Function that should be called when destroying a node.
+ */
+rmw_ret_t
+unregister_node(rmw_context_t * context);
+
+}  // namespace rmw_fastrtps_cpp
+
+#endif  // RMW_FASTRTPS_CPP__REGISTER_NODE_HPP_

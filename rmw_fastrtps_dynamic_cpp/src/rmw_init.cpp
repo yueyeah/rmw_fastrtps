@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
+
 #include "rcutils/types.h"
 
 #include "rmw/impl/cpp/macros.hpp"
@@ -93,17 +95,13 @@ using rmw_dds_common::msg::ParticipantEntitiesInfo;
 rmw_ret_t
 rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
 {
-  rmw_dds_common::Context * common_context = nullptr;
-  CustomParticipantInfo * participant_info = nullptr;
-  rmw_publisher_t * publisher = nullptr;
-  rmw_publisher_options_t publisher_options = rmw_get_default_publisher_options();
+  std::unique_ptr<rmw_context_t, void (*)(rmw_context_t *)> clean_when_fail(
+    context,
+    [](rmw_context_t * context)
+    {
+      *context = rmw_get_zero_initialized_context();
+    });
   rmw_ret_t ret = RMW_RET_OK;
-  rmw_subscription_t * subscription = nullptr;
-  rmw_subscription_options_t subscription_options = rmw_get_default_subscription_options();
-  rmw_qos_profile_t qos = rmw_qos_profile_default;
-
-  // This is currently not implemented in fastrtps
-  subscription_options.ignore_local_publications = true;
 
   RCUTILS_CHECK_ARGUMENT_FOR_NULL(options, RMW_RET_INVALID_ARGUMENT);
   RCUTILS_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
@@ -115,118 +113,23 @@ rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
   context->instance_id = options->instance_id;
   context->implementation_identifier = eprosima_fastrtps_identifier;
 
-  context->impl = static_cast<rmw_context_impl_t *>(rmw_allocate(sizeof(rmw_context_impl_t)));
-  if (nullptr == context->impl) {
-    ret = RMW_RET_BAD_ALLOC;
-    goto fail;
+  std::unique_ptr<rmw_context_impl_t> context_impl(new rmw_context_impl_t());
+  if (!context_impl) {
+    return RMW_RET_BAD_ALLOC;
   }
-
-  common_context =
-    static_cast<rmw_dds_common::Context *>(rmw_allocate(sizeof(rmw_dds_common::Context)));
-  if (nullptr == common_context) {
-    goto fail;
-  }
-  RMW_TRY_PLACEMENT_NEW(
-    common_context,
-    common_context,
-    ret = RMW_RET_BAD_ALLOC; goto fail,
-    rmw_dds_common::Context, );
-  context->impl->common = static_cast<void *>(common_context);
-
-  participant_info = rmw_fastrtps_shared_cpp::create_participant(
-    eprosima_fastrtps_identifier,
-    options->domain_id,
-    &options->security_options,
-    (options->localhost_only == RMW_LOCALHOST_ONLY_ENABLED) ? 1 : 0,
-    common_context);
-  if (nullptr == participant_info) {
-    ret = RMW_RET_BAD_ALLOC;
-    goto fail;
-  }
-  context->impl->participant_info = static_cast<void *>(participant_info);
-
-  qos.avoid_ros_namespace_conventions = false;  // Change it to true after testing
-  qos.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
-  qos.depth = 1;
-  qos.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
-  qos.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
-
-  publisher = rmw_fastrtps_dynamic_cpp::create_publisher(
-    participant_info,
-    rosidl_typesupport_cpp::get_message_type_support_handle<ParticipantEntitiesInfo>(),
-    "_participant_info",
-    &qos,
-    &publisher_options,
-    false,  // our fastrtps typesupport doesn't support keyed topics
-    true);  // don't create a publisher listener
-  if (nullptr == publisher) {
-    ret = RMW_RET_BAD_ALLOC;
-    goto fail;
-  }
-  // If we would have support for keyed topics, this could be KEEP_LAST and depth 1.
-  qos.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
-  qos.depth = 1024;
-  subscription = rmw_fastrtps_dynamic_cpp::create_subscription(
-    participant_info,
-    rosidl_typesupport_cpp::get_message_type_support_handle<ParticipantEntitiesInfo>(),
-    "_participant_info",
-    &qos,
-    &subscription_options,
-    false,  // our fastrtps typesupport doesn't support keyed topics
-    true);  // don't create a subscriber listener
-  if (nullptr == subscription) {
-    ret = RMW_RET_BAD_ALLOC;
-    goto fail;
-  }
-  common_context->gid = rmw_fastrtps_shared_cpp::create_rmw_gid(
-    eprosima_fastrtps_identifier, participant_info->participant->getGuid());
-  common_context->pub = publisher;
-  common_context->sub = subscription;
-  common_context->graph_cache.add_participant(common_context->gid);
-
-  ret = rmw_fastrtps_dynamic_cpp::run_listener_thread(context);
+  context->options = rmw_get_zero_initialized_init_options();
+  ret = rmw_init_options_copy(options, &context->options);
   if (RMW_RET_OK != ret) {
-    goto fail;
+    if (RMW_RET_OK != rmw_init_options_fini(&context->options)) {
+      fprintf(
+        stderr,
+        "Failed to destroy init options after ':" RCUTILS_STRINGIFY(__function__) "' failed.\n");
+    }
+    return ret;
   }
-
+  context->impl = context_impl.release();
+  clean_when_fail.release();
   return RMW_RET_OK;
-
-fail:
-  if (common_context) {
-    ret = rmw_fastrtps_dynamic_cpp::join_listener_thread(context);
-    if (RMW_RET_OK != ret) {
-      return ret;
-    }
-    if (common_context->pub) {
-      ret = rmw_fastrtps_shared_cpp::destroy_publisher(
-        eprosima_fastrtps_identifier,
-        participant_info,
-        common_context->pub);
-      if (RMW_RET_OK != ret) {
-        return ret;
-      }
-    }
-
-    if (common_context->sub) {
-      ret = rmw_fastrtps_shared_cpp::destroy_subscription(
-        eprosima_fastrtps_identifier,
-        participant_info,
-        common_context->sub);
-      if (RMW_RET_OK != ret) {
-        return ret;
-      }
-    }
-  }
-
-  if (participant_info) {
-    ret = rmw_fastrtps_shared_cpp::destroy_participant(participant_info);
-    if (RMW_RET_OK != ret) {
-      return ret;
-    }
-  }
-  rmw_free(context->impl->common);
-  *context = rmw_get_zero_initialized_context();
-  return ret;
 }
 
 rmw_ret_t
@@ -252,31 +155,7 @@ rmw_context_fini(rmw_context_t * context)
     context->implementation_identifier,
     eprosima_fastrtps_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  rmw_ret_t ret = rmw_fastrtps_dynamic_cpp::join_listener_thread(context);
-  if (RMW_RET_OK != ret) {
-    return ret;
-  }
-  auto participant_info = static_cast<CustomParticipantInfo *>(context->impl->participant_info);
-  auto common_context = static_cast<rmw_dds_common::Context *>(context->impl->common);
-  ret = rmw_fastrtps_shared_cpp::destroy_publisher(
-    eprosima_fastrtps_identifier,
-    participant_info,
-    common_context->pub);
-  if (RMW_RET_OK != ret) {
-    return ret;
-  }
-  ret = rmw_fastrtps_shared_cpp::destroy_subscription(
-    eprosima_fastrtps_identifier,
-    participant_info,
-    common_context->sub);
-  if (RMW_RET_OK != ret) {
-    return ret;
-  }
-  ret = rmw_fastrtps_shared_cpp::destroy_participant(participant_info);
-  if (RMW_RET_OK != ret) {
-    return ret;
-  }
-  rmw_free(context->impl->common);
+  delete context->impl;
   *context = rmw_get_zero_initialized_context();
   return RMW_RET_OK;
 }
