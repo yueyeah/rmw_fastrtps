@@ -122,10 +122,9 @@ __rmw_get_topic_names_and_types_by_node(
   }
   auto common_context = static_cast<rmw_dds_common::Context *>(node->context->impl->common);
 
-  DemangleFunction no_op{[](const std::string & x) {return x;}};
   if (no_demangle) {
-    demangle_topic = no_op;
-    demangle_type = no_op;
+    demangle_topic = _identity_demangle;
+    demangle_type = _identity_demangle;
   }
 
   return get_names_and_types_by_node(

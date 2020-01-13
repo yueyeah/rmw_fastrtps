@@ -46,6 +46,11 @@ _demangle_service_reply_from_topic(const std::string & topic_name);
 std::string
 _demangle_service_type_only(const std::string & dds_type_name);
 
+/// Used when ros names are not mangled.
+std::string
+_identity_demangle(const std::string & name);
+
+
 using DemangleFunction = std::string (*)(const std::string &);
 using MangleFunction = DemangleFunction;
 

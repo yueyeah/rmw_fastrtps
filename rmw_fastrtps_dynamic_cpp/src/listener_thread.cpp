@@ -17,7 +17,7 @@
 #include <cstring>
 #include <thread>
 
-#include "rcutils/logging_macros.h"
+#include "rcutils/macros.h"
 
 #include "rmw/allocators.h"
 #include "rmw/error_handling.h"
@@ -37,8 +37,6 @@
 
 using rmw_dds_common::operator<<;
 
-static const char log_tag[] = "rmw_dds_common";
-
 static
 void
 node_listener(rmw_context_t * context);
@@ -49,31 +47,28 @@ rmw_fastrtps_dynamic_cpp::run_listener_thread(rmw_context_t * context)
   auto common_context = static_cast<rmw_dds_common::Context *>(context->impl->common);
   common_context->thread_is_running.store(true);
   common_context->listener_thread_gc = rmw_create_guard_condition(context);
-  auto clean = [ = ]() {
-      common_context->thread_is_running.store(false);
-      if (common_context->listener_thread_gc) {
-        if (RMW_RET_OK != rmw_destroy_guard_condition(common_context->listener_thread_gc)) {
-          RCUTILS_LOG_ERROR_NAMED(log_tag, "Failed to destroy guard condition");
-        }
-      }
-    };
-  if (!common_context->listener_thread_gc) {
+  if (common_context->listener_thread_gc) {
+    try {
+      common_context->listener_thread = std::thread(node_listener, context);
+      return RMW_RET_OK;
+    } catch (const std::exception & exc) {
+      RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("Failed to create std::thread: %s", exc.what());
+    } catch (...) {
+      RMW_SET_ERROR_MSG("Failed to create std::thread");
+    }
+  } else {
     RMW_SET_ERROR_MSG("Failed to create guard condition");
-    clean();
-    return RMW_RET_ERROR;
   }
-  try {
-    common_context->listener_thread = std::thread(node_listener, context);
-  } catch (const std::exception & exc) {
-    RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("Failed to create std::thread: %s", exc.what());
-    clean();
-    return RMW_RET_ERROR;
-  } catch (...) {
-    RMW_SET_ERROR_MSG("Failed to create std::thread");
-    clean();
-    return RMW_RET_ERROR;
+  common_context->thread_is_running.store(false);
+  if (common_context->listener_thread_gc) {
+    if (RMW_RET_OK != rmw_destroy_guard_condition(common_context->listener_thread_gc)) {
+      fprintf(
+        stderr,
+        RCUTILS_STRINGIFY(__FILE__) ":" RCUTILS_STRINGIFY(__function__) ":"
+        RCUTILS_STRINGIFY(__LINE__) ": Failed to destroy guard condition");
+    }
   }
-  return RMW_RET_OK;
+  return RMW_RET_ERROR;
 }
 
 rmw_ret_t
@@ -101,13 +96,15 @@ rmw_fastrtps_dynamic_cpp::join_listener_thread(rmw_context_t * context)
   return RMW_RET_OK;
 }
 
-static
-void
-terminate(const char * error_message)
-{
-  RCUTILS_LOG_ERROR_NAMED(log_tag, "%s, terminating ...", error_message);
-  std::terminate();
-}
+#define TERMINATE(msg) \
+  do { \
+    fprintf( \
+      stderr, \
+      RCUTILS_STRINGIFY(__FILE__) ":" RCUTILS_STRINGIFY(__function__) ":" \
+      RCUTILS_STRINGIFY(__LINE__) RCUTILS_STRINGIFY(msg) ": %s, terminating ...", \
+      rmw_get_error_string().str); \
+    std::terminate(); \
+  } while (0)
 
 void
 node_listener(rmw_context_t * context)
@@ -130,7 +127,7 @@ node_listener(rmw_context_t * context)
     // number of conditions of a subscription is 2
     rmw_wait_set_t * wait_set = rmw_create_wait_set(context, 2);
     if (nullptr == wait_set) {
-      terminate("failed to create wait set");
+      TERMINATE("failed to create wait set");
     }
     if (RMW_RET_OK != rmw_wait(
         &subscriptions,
@@ -141,7 +138,7 @@ node_listener(rmw_context_t * context)
         wait_set,
         nullptr))
     {
-      terminate("rmw_wait failed");
+      TERMINATE("rmw_wait failed");
     }
     if (subscriptions_buffer[0]) {
       rmw_dds_common::msg::ParticipantEntitiesInfo msg;
@@ -152,10 +149,9 @@ node_listener(rmw_context_t * context)
           &taken,
           nullptr))
       {
-        terminate("rmw_take failed");
+        TERMINATE("rmw_take failed");
       }
       if (taken) {
-        // TODO(ivanpauno): Should the program be terminated if taken is false?
         if (std::memcmp(
             reinterpret_cast<char *>(common_context->gid.data),
             reinterpret_cast<char *>(&msg.gid.data),
@@ -165,17 +161,10 @@ node_listener(rmw_context_t * context)
           continue;
         }
         common_context->graph_cache.update_participant_entities(msg);
-        if (rcutils_logging_logger_is_enabled_for("rmw_dds_common",
-          RCUTILS_LOG_SEVERITY_DEBUG))
-        {
-          std::ostringstream ss;
-          ss << common_context->graph_cache;
-          RCUTILS_LOG_DEBUG_NAMED("rmw_fastrtps_dynamic_cpp", "%s", ss.str().c_str());
-        }
       }
     }
     if (RMW_RET_OK != rmw_destroy_wait_set(wait_set)) {
-      terminate("failed to destroy wait set");
+      TERMINATE("failed to destroy wait set");
     }
   }
 }

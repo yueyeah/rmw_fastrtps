@@ -157,3 +157,9 @@ _demangle_service_type_only(const std::string & dds_type_name)
   std::string type_name = dds_type_name.substr(start, suffix_position - start);
   return type_namespace + type_name;
 }
+
+std::string
+_identity_demangle(const std::string & name)
+{
+  return name;
+}

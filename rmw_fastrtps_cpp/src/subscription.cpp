@@ -138,7 +138,7 @@ create_subscription(
     RMW_SET_ERROR_MSG("create_subscriber() could not create subscriber");
     goto fail;
   }
-  info->subscription_gid = rmw_fastrtps_shared_cpp::create_rmw_gid(
+  info->subscription_gid_ = rmw_fastrtps_shared_cpp::create_rmw_gid(
     eprosima_fastrtps_identifier, info->subscriber_->getGuid());
   rmw_subscription = rmw_subscription_allocate();
   if (!rmw_subscription) {
