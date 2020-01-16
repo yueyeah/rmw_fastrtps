@@ -19,9 +19,72 @@
 #include "rmw/rmw.h"
 
 #include "./type_support_common.hpp"
+#include <stdio.h>
+#include <string.h>
+#include <openssl/hmac.h>
 
 extern "C"
 {
+
+/**
+ * Computes hmac based on the ros_message then adds it to the hmac field of the serialized message 
+ */
+bool
+create_hmac(
+  const void * ros_message,
+  const char * key,
+  rmw_serialized_message_t * serialized_message)
+{
+  unsigned char * pre_hmac_ros_message = (unsigned char *) ros_message;
+  size_t key_len = strlen(key);
+  size_t message_len = strlen((const char *)pre_hmac_ros_message);
+  unsigned char * hmac = HMAC(EVP_md5(), key, key_len, pre_hmac_ros_message, message_len, NULL, NULL);
+  serialized_message->hmac = hmac;
+  return true; 
+}
+
+/**
+ * Computes a new hmac based on the ros_message then compares with the hmac already stored in the 
+ * hmac field of the serialized message 
+ */
+bool
+is_hmac_matched(
+  const void * ros_message,
+  const char * key,
+  const rmw_serialized_message_t * serialized_message)
+{
+  unsigned char * received_ros_message = (unsigned char *) ros_message;
+  size_t key_len = strlen(key);
+  size_t message_len = strlen((const char *)received_ros_message);
+  const char * computed_hmac; /* stores the hmac computed from the received message */
+  computed_hmac = (const char *)HMAC(EVP_md5(), key, key_len, received_ros_message, message_len, NULL, NULL);
+  const char * received_hmac = (const char *)serialized_message->hmac;
+  return strcmp(computed_hmac, received_hmac) == 0; /* returns true if hmacs are equal, false otherwise */
+}
+
+/**
+ * Increments the counter of the serialized message by 1
+ */
+bool 
+increment_counter(
+  rmw_serialized_message_t * serialized_message)
+{
+  if (serialized_message->counter == 0) {
+    serialized_message->counter = rand()
+  } else {
+    serialized_message->counter++;
+  }
+}
+
+/**
+ * Checks that the counter is incremented correctly.
+ */
+bool is_counter_inc_correctly(
+  rmw_serialized_message_t * serialized_message)
+{
+  if 
+}
+
 rmw_ret_t
 rmw_serialize(
   const void * ros_message,
@@ -38,6 +101,12 @@ rmw_serialize(
       return RMW_RET_ERROR;
     }
   }
+  // assert(type support checked)
+
+  // insert create_hmac here. add hmac to the ros_message before resizing/serialising
+  // key must put somewhere else
+  const char * key = (const char *) "012345";
+  create_hmac(ros_message, key, serialized_message);
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
@@ -48,6 +117,8 @@ rmw_serialize(
       return RMW_RET_ERROR;
     }
   }
+  // assert(able to dynamically resize serialised message if message bigger than buffer)
+  // assert(serialised message can fit in buffer)
 
   eprosima::fastcdr::FastBuffer buffer(
     reinterpret_cast<char *>(serialized_message->buffer), data_length);
@@ -86,6 +157,14 @@ rmw_deserialize(
     eprosima::fastcdr::Cdr::DDS_CDR);
 
   auto ret = tss->deserializeROSmessage(deser, ros_message);
+
+  // key must put somewhere else
+  const char * key = (const char *) "01234567890";
+  if (!is_hmac_matched(ros_message, key, serialized_message)) {
+    RMW_SET_ERROR_MSG("hmac does not match, possible alteration/interception of messages");
+    return RMW_RET_ERROR;
+  }
+
   delete tss;
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
 }
@@ -99,4 +178,5 @@ rmw_get_serialized_message_size(
   RMW_SET_ERROR_MSG("unimplemented");
   return RMW_RET_ERROR;
 }
+
 }  // extern "C"
