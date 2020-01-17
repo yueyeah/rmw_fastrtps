@@ -65,6 +65,7 @@ is_hmac_matched(
 /**
  * Increments the counter of the serialized message by 1
  */
+/*
 bool 
 increment_counter(
   rmw_serialized_message_t * serialized_message)
@@ -75,15 +76,18 @@ increment_counter(
     serialized_message->counter++;
   }
 }
+*/
 
 /**
  * Checks that the counter is incremented correctly.
  */
+/*
 bool is_counter_inc_correctly(
   rmw_serialized_message_t * serialized_message)
 {
   if 
 }
+*/
 
 rmw_ret_t
 rmw_serialize(
@@ -105,7 +109,7 @@ rmw_serialize(
 
   // insert create_hmac here. add hmac to the ros_message before resizing/serialising
   // key must put somewhere else
-  const char * key = (const char *) "012345";
+  const char * key = (const char *) "01234567890";
   create_hmac(ros_message, key, serialized_message);
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
