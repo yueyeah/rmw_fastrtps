@@ -110,7 +110,10 @@ rmw_serialize(
   // insert create_hmac here. add hmac to the ros_message before resizing/serialising
   // key must put somewhere else
   const char * key = (const char *) "01234567890";
-  create_hmac(ros_message, key, serialized_message);
+  if (!create_hmac(ros_message, key, serialized_message)) {
+    RMW_SET_ERROR_MSG("unable to compute hmac for message");
+    return RMW_RET_ERROR;
+  }
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
