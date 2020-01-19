@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <openssl/hmac.h>
+#include <stdbool.h>
 
 extern "C"
 {
@@ -29,7 +30,7 @@ extern "C"
 /**
  * Computes hmac based on the ros_message then adds it to the hmac field of the serialized message 
  */
-bool
+rmw_ret_t
 create_hmac(
   const void * ros_message,
   const char * key,
@@ -38,9 +39,13 @@ create_hmac(
   unsigned char * pre_hmac_ros_message = (unsigned char *) ros_message;
   size_t key_len = strlen(key);
   size_t message_len = strlen((const char *)pre_hmac_ros_message);
-  unsigned char * hmac = HMAC(EVP_md5(), key, key_len, pre_hmac_ros_message, message_len, NULL, NULL);
+  unsigned int * hmac_size;
+  unsigned char * hmac;
+  HMAC(EVP_md5(), key, key_len, pre_hmac_ros_message, message_len, hmac, hmac_size);
+  rmw_ret_t ret = rcutils_uint8_array_hmac_init(serialized_message, (size_t)hmac_size);
   serialized_message->hmac = hmac;
-  return true; 
+  printf("Sending hmac: %s\n", serialized_message->hmac);
+  return ret; 
 }
 
 /**
@@ -49,17 +54,20 @@ create_hmac(
  */
 bool
 is_hmac_matched(
-  const void * ros_message,
   const char * key,
   const rmw_serialized_message_t * serialized_message)
 {
-  unsigned char * received_ros_message = (unsigned char *) ros_message;
+  fprintf(stdout, "Just entered is_hmac_matched fn\n");
+  unsigned char * received_ros_message = (unsigned char *) serialized_message->buffer;
   size_t key_len = strlen(key);
   size_t message_len = strlen((const char *)received_ros_message);
-  const char * computed_hmac; /* stores the hmac computed from the received message */
-  computed_hmac = (const char *)HMAC(EVP_md5(), key, key_len, received_ros_message, message_len, NULL, NULL);
-  const char * received_hmac = (const char *)serialized_message->hmac;
-  return strcmp(computed_hmac, received_hmac) == 0; /* returns true if hmacs are equal, false otherwise */
+  unsigned char * computed_hmac; /* stores the hmac computed from the received message */
+  HMAC(EVP_md5(), key, key_len, received_ros_message, message_len, computed_hmac, NULL);
+  const char * received_hmac;
+  fprintf(stdout, "hmac computed from received message, now comparing with received hmac\n");
+  fprintf(stdout, "computed hmac is: %s\n", computed_hmac);
+  fprintf(stdout, "received hmac is: %s\n", received_hmac);
+  return strcmp((const char *)computed_hmac, received_hmac) == 0; /* returns true if hmacs are equal, false otherwise */
 }
 
 /**
@@ -145,16 +153,19 @@ rmw_deserialize(
   const rosidl_message_type_support_t * type_support,
   void * ros_message)
 {
+  fprintf(stdout, "Just entered rmw_deserialize fn\n");
+  printf("serialized_message hmac is: %s\n", serialized_message->hmac);
   const rosidl_message_type_support_t * ts = get_message_typesupport_handle(
     type_support, RMW_FASTRTPS_CPP_TYPESUPPORT_C);
   if (!ts) {
     ts = get_message_typesupport_handle(
       type_support, RMW_FASTRTPS_CPP_TYPESUPPORT_CPP);
     if (!ts) {
-      RMW_SET_ERROR_MSG("type support not from this implementation");
+      RMW_SET_ERROR_MSG("type support not from this implementation\n");
       return RMW_RET_ERROR;
     }
   }
+  fprintf(stdout, "Checked rmw_serialize message_typesupport\n");
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
@@ -164,13 +175,16 @@ rmw_deserialize(
     eprosima::fastcdr::Cdr::DDS_CDR);
 
   auto ret = tss->deserializeROSmessage(deser, ros_message);
+  fprintf(stdout, "Serialized message is deserialized\n");
 
   // key must put somewhere else
   const char * key = (const char *) "01234567890";
-  if (!is_hmac_matched(ros_message, key, serialized_message)) {
+  if (!is_hmac_matched(key, serialized_message)) {
+    fprintf(stdout, "hmac does not match, possible alteration/interception of messages\n");
     RMW_SET_ERROR_MSG("hmac does not match, possible alteration/interception of messages");
     return RMW_RET_ERROR;
   }
+  fprintf(stdout, "hmac matches, no unauthorised alteration of messages\n");
 
   delete tss;
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
