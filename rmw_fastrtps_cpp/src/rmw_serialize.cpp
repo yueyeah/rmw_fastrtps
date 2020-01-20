@@ -36,15 +36,17 @@ create_hmac(
   const char * key,
   rmw_serialized_message_t * serialized_message)
 {
+  char fn_id[] = "create_hmac";
+  printf("Just entered %s\n", fn_id);
   unsigned char * pre_hmac_ros_message = (unsigned char *) ros_message;
   size_t key_len = strlen(key);
   size_t message_len = strlen((const char *)pre_hmac_ros_message);
-  unsigned int * hmac_size;
-  unsigned char * hmac;
+  unsigned int * hmac_size = (unsigned int *)malloc(sizeof(unsigned int));
+  unsigned char * hmac = (unsigned char *)malloc(sizeof(unsigned char));
   HMAC(EVP_md5(), key, key_len, pre_hmac_ros_message, message_len, hmac, hmac_size);
   rmw_ret_t ret = rcutils_uint8_array_hmac_init(serialized_message, (size_t)hmac_size);
   serialized_message->hmac = hmac;
-  printf("Sending hmac: %s\n", serialized_message->hmac);
+  printf("%s: sending hmac: %s\n", fn_id, serialized_message->hmac);
   return ret; 
 }
 
@@ -57,16 +59,21 @@ is_hmac_matched(
   const char * key,
   const rmw_serialized_message_t * serialized_message)
 {
+  char fn_id[] = "is_hmac_matched";
   fprintf(stdout, "Just entered is_hmac_matched fn\n");
   unsigned char * received_ros_message = (unsigned char *) serialized_message->buffer;
   size_t key_len = strlen(key);
   size_t message_len = strlen((const char *)received_ros_message);
-  unsigned char * computed_hmac; /* stores the hmac computed from the received message */
+  // computed hmac stores the hmac computed from the serialized_message->buffer
+  // i.e. the actual ros_message
+  unsigned char * computed_hmac = (unsigned char *)malloc(sizeof(unsigned char)); 
   HMAC(EVP_md5(), key, key_len, received_ros_message, message_len, computed_hmac, NULL);
-  const char * received_hmac;
-  fprintf(stdout, "hmac computed from received message, now comparing with received hmac\n");
-  fprintf(stdout, "computed hmac is: %s\n", computed_hmac);
-  fprintf(stdout, "received hmac is: %s\n", received_hmac);
+  // received hmac stores the hmac from the serialized_message->hmac 
+  // i.e. the hmac sent together with the actual ros_message
+  const char * received_hmac = (const char *) serialized_message->hmac;
+  fprintf(stdout, "%s: hmac computed from received message, now comparing with received hmac\n", fn_id);
+  fprintf(stdout, "%s: computed hmac is: %s\n", fn_id, computed_hmac);
+  fprintf(stdout, "%s: received hmac is: %s\n", fn_id, received_hmac);
   return strcmp((const char *)computed_hmac, received_hmac) == 0; /* returns true if hmacs are equal, false otherwise */
 }
 
@@ -103,6 +110,8 @@ rmw_serialize(
   const rosidl_message_type_support_t * type_support,
   rmw_serialized_message_t * serialized_message)
 {
+  char fn_id[] = "rmw_serialize";
+  printf("Just entered %s\n", fn_id);
   const rosidl_message_type_support_t * ts = get_message_typesupport_handle(
     type_support, RMW_FASTRTPS_CPP_TYPESUPPORT_C);
   if (!ts) {
@@ -114,6 +123,7 @@ rmw_serialize(
     }
   }
   // assert(type support checked)
+  printf("%s: type support is checked\n", fn_id);
 
   // insert create_hmac here. add hmac to the ros_message before resizing/serialising
   // key must put somewhere else
@@ -122,6 +132,7 @@ rmw_serialize(
     RMW_SET_ERROR_MSG("unable to compute hmac for message");
     return RMW_RET_ERROR;
   }
+  printf("%s: hmac for message is computed\n", fn_id);
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
@@ -153,7 +164,8 @@ rmw_deserialize(
   const rosidl_message_type_support_t * type_support,
   void * ros_message)
 {
-  fprintf(stdout, "Just entered rmw_deserialize fn\n");
+  char fn_id[] = "rmw_deserialize";
+  fprintf(stdout, "Just entered %s\n", fn_id);
   printf("serialized_message hmac is: %s\n", serialized_message->hmac);
   const rosidl_message_type_support_t * ts = get_message_typesupport_handle(
     type_support, RMW_FASTRTPS_CPP_TYPESUPPORT_C);
@@ -165,7 +177,7 @@ rmw_deserialize(
       return RMW_RET_ERROR;
     }
   }
-  fprintf(stdout, "Checked rmw_serialize message_typesupport\n");
+  fprintf(stdout, "%s: checked rmw_serialize message_typesupport\n", fn_id);
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
@@ -175,16 +187,16 @@ rmw_deserialize(
     eprosima::fastcdr::Cdr::DDS_CDR);
 
   auto ret = tss->deserializeROSmessage(deser, ros_message);
-  fprintf(stdout, "Serialized message is deserialized\n");
+  fprintf(stdout, "%s: serialized message is deserialized\n", fn_id);
 
   // key must put somewhere else
   const char * key = (const char *) "01234567890";
   if (!is_hmac_matched(key, serialized_message)) {
-    fprintf(stdout, "hmac does not match, possible alteration/interception of messages\n");
+    fprintf(stdout, "%s: hmac does not match, possible alteration/interception of messages\n", fn_id);
     RMW_SET_ERROR_MSG("hmac does not match, possible alteration/interception of messages");
     return RMW_RET_ERROR;
   }
-  fprintf(stdout, "hmac matches, no unauthorised alteration of messages\n");
+  fprintf(stdout, "%s: hmac matches, no unauthorised alteration of messages\n", fn_id);
 
   delete tss;
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
