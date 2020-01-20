@@ -151,11 +151,11 @@ rmw_serialize(
   // assert(serialised message can fit in buffer)
   printf("%s: serialized message can fit in buffer.\n", fn_id);
 
+  // Serialising the ros_message
   eprosima::fastcdr::FastBuffer buffer(
     reinterpret_cast<char *>(serialized_message->buffer), data_length);
   eprosima::fastcdr::Cdr ser(
     buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::Cdr::DDS_CDR);
-
   auto ret = tss->serializeROSmessage(ros_message, ser);
   serialized_message->buffer_length = data_length;
   serialized_message->buffer_capacity = data_length;
