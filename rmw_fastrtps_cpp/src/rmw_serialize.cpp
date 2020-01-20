@@ -80,33 +80,6 @@ is_hmac_matched(
   return strcmp((const char *)computed_hmac, received_hmac) == 0; /* returns true if hmacs are equal, false otherwise */
 }
 
-/**
- * Increments the counter of the serialized message by 1
- */
-/*
-bool 
-increment_counter(
-  rmw_serialized_message_t * serialized_message)
-{
-  if (serialized_message->counter == 0) {
-    serialized_message->counter = rand()
-  } else {
-    serialized_message->counter++;
-  }
-}
-*/
-
-/**
- * Checks that the counter is incremented correctly.
- */
-/*
-bool is_counter_inc_correctly(
-  rmw_serialized_message_t * serialized_message)
-{
-  if 
-}
-*/
-
 rmw_ret_t
 rmw_serialize(
   const void * ros_message,
@@ -114,7 +87,7 @@ rmw_serialize(
   rmw_serialized_message_t * serialized_message)
 {
   char fn_id[] = "rmw_serialize";
-  printf("Just entered %s\n", fn_id);
+  printf("\nJust entered %s\n", fn_id);
   
   const rosidl_message_type_support_t * ts = get_message_typesupport_handle(
     type_support, RMW_FASTRTPS_CPP_TYPESUPPORT_C);
@@ -159,6 +132,7 @@ rmw_serialize(
   auto ret = tss->serializeROSmessage(ros_message, ser);
   serialized_message->buffer_length = data_length;
   serialized_message->buffer_capacity = data_length;
+
   delete tss;
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
 }
@@ -170,7 +144,7 @@ rmw_deserialize(
   void * ros_message)
 {
   char fn_id[] = "rmw_deserialize";
-  fprintf(stdout, "Just entered %s\n", fn_id);
+  fprintf(stdout, "\nJust entered %s\n", fn_id);
   printf("%s: serialized_message hmac is: %s\n", fn_id, serialized_message->hmac);
   const rosidl_message_type_support_t * ts = get_message_typesupport_handle(
     type_support, RMW_FASTRTPS_CPP_TYPESUPPORT_C);
