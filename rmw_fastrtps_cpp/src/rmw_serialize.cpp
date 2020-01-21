@@ -34,8 +34,7 @@ bool
 create_hmac(
   const void * ros_message,
   const char * key,
-  unsigned char * hmac,
-  unsigned int * hmac_size)
+  unsigned char * hmac)
 {
   char fn_id[] = "create_hmac";
   printf("Just entered %s\n", fn_id);
@@ -43,9 +42,8 @@ create_hmac(
   size_t key_len = strlen(key);
   size_t message_len = strlen((const char *)pre_hmac_ros_message);
   // Computing hmac using OpenSSL Hmac function, put computed hmac into hmac and the length of the computed hmac into hmac_size
-  HMAC(EVP_md5(), key, key_len, pre_hmac_ros_message, message_len, hmac, hmac_size);
-  printf("%s: computed hmac_size: %d\n", fn_id, *hmac_size);
-  printf("%s: computed hmac: %x\n", fn_id, *hmac);
+  HMAC(EVP_md5(), key, key_len, pre_hmac_ros_message, message_len, hmac, NULL);
+  printf("%s: computed hmac: %s\n", fn_id, hmac);
   return true; 
 }
 
@@ -56,30 +54,31 @@ create_hmac(
 bool
 is_hmac_matched(
   const char * key,
-  void * deser_ros_message)
+  void * deser_ros_message,
+  size_t deser_ros_message_len)
 {
   char fn_id[] = "is_hmac_matched";
   fprintf(stdout, "Just entered %s fn\n", fn_id);
   size_t key_len = strlen(key);
-  
+
   // casting and parsing into hmac_size, hmac and ros_message
   const char * cast_deser_ros_message = (const char *)deser_ros_message;
-  size_t cast_deser_ros_message_len = strlen(cast_deser_ros_message);
-  // get size of hmac which is the first index in the deserialized message
-  size_t received_hmac_size = (size_t) cast_deser_ros_message[0];
-  // put the received hmac into received_hmac
-  unsigned char * received_hmac = (unsigned char *)malloc(received_hmac_size);
-  memcpy(received_hmac, cast_deser_ros_message+1, received_hmac_size);
-  // put the received message into received_ros_message
-  size_t received_ros_message_size = cast_deser_ros_message_len - 1 - received_hmac_size;
-  unsigned char * received_ros_message = (unsigned char *)malloc(received_ros_message_size);
-  memcpy(received_ros_message, cast_deser_ros_message+1+received_hmac_size, received_ros_message_size);
 
-  unsigned char * computed_hmac = (unsigned char *)malloc(sizeof(unsigned char)); 
+  // put the received hmac into received_hmac variable
+  unsigned char * received_hmac = (unsigned char *)malloc(16);
+  memcpy(received_hmac, cast_deser_ros_message, 16);
+  printf("%s: received_hmac: %send\n", fn_id, received_hmac);
+
+  // put the received message into received_ros_message
+  size_t received_ros_message_size = deser_ros_message_len - 16;
+  unsigned char * received_ros_message = (unsigned char *)malloc(received_ros_message_size);
+  memcpy(received_ros_message, cast_deser_ros_message + 16, deser_ros_message_len);
+  printf("%s: received_ros_message: %send\n", fn_id, received_ros_message);
+
+  // compute hmac and compare with received_hmac
+  unsigned char * computed_hmac = (unsigned char *)malloc(16); 
   HMAC(EVP_md5(), key, key_len, received_ros_message, received_ros_message_size, computed_hmac, NULL);
-  fprintf(stdout, "%s: hmac computed from received message, now comparing with received hmac\n", fn_id);
-  fprintf(stdout, "%s: computed hmac is: %x\n", fn_id, *computed_hmac);
-  fprintf(stdout, "%s: received hmac is: %x\n", fn_id, *received_hmac);
+  printf("%s: computed_hmac: %send\n", fn_id, computed_hmac);
   return strcmp((const char *)computed_hmac, (const char *)received_hmac) == 0; /* returns true if hmacs are equal, false otherwise */
 }
 
@@ -108,31 +107,27 @@ rmw_serialize(
 
   // Create hmac before the message is resized and serialized. 
   // Remember to free hmac and hmac_size after usage!!
-  unsigned char * hmac = (unsigned char *)malloc(sizeof(unsigned char));
-  unsigned int * hmac_size = (unsigned int *)malloc(sizeof(unsigned int));
+  unsigned char * hmac = (unsigned char *)malloc(16);
   const char * key = (const char *) "01234567890"; // key will be put somewhere else in the future
-  if (!create_hmac(ros_message, key, hmac, hmac_size)) {
+  if (!create_hmac(ros_message, key, hmac)) {
     RMW_SET_ERROR_MSG("unable to compute hmac for message");
     return RMW_RET_ERROR;
   }
-  printf("%s: hmac for message: %x\n", fn_id, *hmac);
+  printf("%s: hmac for message: %s\n", fn_id, hmac);
 
-  // new_ros_message = (char)hmac_size + hmac + (char)ros_message
+  // new_ros_message = hmac + (char)ros_message
   // This new_ros_message will be serialized instead of the existing 
   // implementation where ros_message is serialized 
   unsigned char * cast_ros_message = (unsigned char *)ros_message;
-  printf("%s cast_ros_message: %s\n", fn_id, cast_ros_message);
-  unsigned char * cast_hmac_size = (unsigned char *)hmac_size;
-  printf("%s cast_hmac_size: %s\n", fn_id, cast_hmac_size);
-  unsigned char * new_ros_message = (unsigned char *)malloc(sizeof(*cast_hmac_size) + sizeof(*hmac) + (sizeof(*cast_ros_message)));
-  memcpy(new_ros_message, cast_hmac_size, sizeof(*cast_hmac_size));
-  memcpy(new_ros_message, hmac, sizeof(*hmac));
-  memcpy(new_ros_message, cast_ros_message, sizeof(*cast_ros_message));
-  printf("%s new_ros_message: %send\n", fn_id, new_ros_message);
+  printf("%s: cast_ros_message: %s\n", fn_id, cast_ros_message);
+  unsigned char * new_ros_message = (unsigned char *)malloc(sizeof(hmac) + (sizeof(cast_ros_message)));
+  memcpy(new_ros_message, hmac, 16);
+  memcpy(new_ros_message, cast_ros_message, sizeof(cast_ros_message));
+  printf("%s: new_ros_message: %send\n", fn_id, new_ros_message);
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
-  auto data_length = tss->getEstimatedSerializedSize(new_ros_message);
+  auto data_length = tss->getEstimatedSerializedSize(ros_message) + 16;
   if (serialized_message->buffer_capacity < data_length) {
     if (rmw_serialized_message_resize(serialized_message, data_length) != RMW_RET_OK) {
       RMW_SET_ERROR_MSG("unable to dynamically resize serialized message");
@@ -157,7 +152,6 @@ rmw_serialize(
 
   // Clean up everything that I have malloced
   free(new_ros_message);
-  free(hmac_size);
   free(hmac);
 
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
@@ -195,7 +189,7 @@ rmw_deserialize(
 
   // key must put somewhere else
   const char * key = (const char *) "01234567890";
-  if (!is_hmac_matched(key, ros_message)) {
+  if (!is_hmac_matched(key, ros_message, serialized_message->buffer_length)) {
     fprintf(stdout, "%s: hmac does not match, possible alteration/interception of messages\n", fn_id);
     RMW_SET_ERROR_MSG("hmac does not match, possible alteration/interception of messages");
     return RMW_RET_ERROR;
