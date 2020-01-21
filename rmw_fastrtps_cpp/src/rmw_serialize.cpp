@@ -27,61 +27,6 @@
 extern "C"
 {
 
-/**
- * Computes hmac based on the ros_message. Put the length of the hmac into hmac_size.
- */
-bool
-create_hmac(
-  const void * ros_message,
-  const char * key,
-  unsigned char * hmac)
-{
-  char fn_id[] = "create_hmac";
-  printf("Just entered %s\n", fn_id);
-  unsigned char * pre_hmac_ros_message = (unsigned char *) ros_message;
-  size_t key_len = strlen(key);
-  size_t message_len = strlen((const char *)pre_hmac_ros_message);
-  // Computing hmac using OpenSSL Hmac function, put computed hmac into hmac and the length of the computed hmac into hmac_size
-  HMAC(EVP_md5(), key, key_len, pre_hmac_ros_message, message_len, hmac, NULL);
-  printf("%s: computed hmac: %s\n", fn_id, hmac);
-  return true; 
-}
-
-/**
- * Extracts the hmac from the ros_message and compares it against the hmac 
- * computed from the ros_message 
- */
-bool
-is_hmac_matched(
-  const char * key,
-  void * deser_ros_message,
-  size_t deser_ros_message_len)
-{
-  char fn_id[] = "is_hmac_matched";
-  fprintf(stdout, "Just entered %s fn\n", fn_id);
-  size_t key_len = strlen(key);
-
-  // casting and parsing into hmac_size, hmac and ros_message
-  const char * cast_deser_ros_message = (const char *)deser_ros_message;
-
-  // put the received hmac into received_hmac variable
-  unsigned char * received_hmac = (unsigned char *)malloc(16);
-  memcpy(received_hmac, cast_deser_ros_message, 16);
-  printf("%s: received_hmac: %send\n", fn_id, received_hmac);
-
-  // put the received message into received_ros_message
-  size_t received_ros_message_size = deser_ros_message_len - 16;
-  unsigned char * received_ros_message = (unsigned char *)malloc(received_ros_message_size);
-  memcpy(received_ros_message, cast_deser_ros_message + 16, deser_ros_message_len);
-  printf("%s: received_ros_message: %send\n", fn_id, received_ros_message);
-
-  // compute hmac and compare with received_hmac
-  unsigned char * computed_hmac = (unsigned char *)malloc(16); 
-  HMAC(EVP_md5(), key, key_len, received_ros_message, received_ros_message_size, computed_hmac, NULL);
-  printf("%s: computed_hmac: %send\n", fn_id, computed_hmac);
-  return strcmp((const char *)computed_hmac, (const char *)received_hmac) == 0; /* returns true if hmacs are equal, false otherwise */
-}
-
 rmw_ret_t
 rmw_serialize(
   const void * ros_message,
@@ -105,29 +50,10 @@ rmw_serialize(
   // assert(type support checked)
   printf("%s: type support is checked\n", fn_id);
 
-  // Create hmac before the message is resized and serialized. 
-  // Remember to free hmac and hmac_size after usage!!
-  unsigned char * hmac = (unsigned char *)malloc(16);
-  const char * key = (const char *) "01234567890"; // key will be put somewhere else in the future
-  if (!create_hmac(ros_message, key, hmac)) {
-    RMW_SET_ERROR_MSG("unable to compute hmac for message");
-    return RMW_RET_ERROR;
-  }
-  printf("%s: hmac for message: %s\n", fn_id, hmac);
-
-  // new_ros_message = hmac + (char)ros_message
-  // This new_ros_message will be serialized instead of the existing 
-  // implementation where ros_message is serialized 
-  unsigned char * cast_ros_message = (unsigned char *)ros_message;
-  printf("%s: cast_ros_message: %s\n", fn_id, cast_ros_message);
-  unsigned char * new_ros_message = (unsigned char *)malloc(sizeof(hmac) + (sizeof(cast_ros_message)));
-  memcpy(new_ros_message, hmac, 16);
-  memcpy(new_ros_message, cast_ros_message, sizeof(cast_ros_message));
-  printf("%s: new_ros_message: %send\n", fn_id, new_ros_message);
-
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
-  auto data_length = tss->getEstimatedSerializedSize(ros_message) + 16;
+  auto original_data_length = tss->getEstimatedSerializedSize(ros_message);
+  auto data_length = original_data_length + 16;
   if (serialized_message->buffer_capacity < data_length) {
     if (rmw_serialized_message_resize(serialized_message, data_length) != RMW_RET_OK) {
       RMW_SET_ERROR_MSG("unable to dynamically resize serialized message");
@@ -138,20 +64,40 @@ rmw_serialize(
   // assert(serialised message can fit in buffer)
   printf("%s: serialized message can fit in buffer.\n", fn_id);
 
-  // Serializing the new_ros_message
+  // Serializing the ros_message
   eprosima::fastcdr::FastBuffer buffer(
     reinterpret_cast<char *>(serialized_message->buffer), data_length);
   eprosima::fastcdr::Cdr ser(
     buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::Cdr::DDS_CDR);
-  auto ret = tss->serializeROSmessage(new_ros_message, ser);
+  auto ret = tss->serializeROSmessage(ros_message, ser);
   serialized_message->buffer_length = data_length;
   serialized_message->buffer_capacity = data_length;
+
+  unsigned char * serialized_orig_ros_msg = (unsigned char *)malloc(original_data_length);
+  memcpy(serialized_orig_ros_msg, serialized_message->buffer, original_data_length);
+  // serialized_orig_ros_msg now contains serialized original ros message.
+
+  const char * key = "01234567890";
+  unsigned char * hmac = (unsigned char *)malloc(16);
+  HMAC(EVP_md5(), key, 11, serialized_orig_ros_msg, original_data_length, hmac, NULL);
+  memcpy(serialized_message->buffer+(original_data_length), hmac, 16);
+  // the hmac is obtained from serialized_orig_ros_msg and appended to the end 
+  // of the serialized original ros message
+  
+  // debug statement to find out the contents of the serialized message buffer 
+  // while in the rmw_serialize fn
+  printf("%s: serialized buffer: ", fn_id);
+  for (size_t i = 0; i < serialized_message->buffer_length; ++i) {
+    printf("%02x ", serialized_message->buffer[i]);
+  }
+  printf("\n");
+
   printf("%s: serialized data_length: %ldend\n", fn_id, data_length);
 
   delete tss;
 
   // Clean up everything that I have malloced
-  free(new_ros_message);
+  //free(new_ros_message);
   free(hmac);
 
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
@@ -177,6 +123,31 @@ rmw_deserialize(
   }
   fprintf(stdout, "%s: checked message_typesupport\n", fn_id);
 
+  // debug statement in rmw_deserialize, print out buffer before deserializing
+  printf("%s: serialized buffer: ", fn_id);
+  for (size_t i = 0; i < serialized_message->buffer_length; ++i) {
+    printf("%02x ", serialized_message->buffer[i]);
+  }
+  printf("\n");
+
+  const char * key = (const char *) "01234567890";
+
+  int original_ros_msg_length = serialized_message->buffer_length - 18;
+  unsigned char * original_ros_msg_serialized = (unsigned char *)malloc(original_ros_msg_length);
+  memcpy(original_ros_msg_serialized, serialized_message->buffer, original_ros_msg_length);
+  unsigned char * computed_hmac = (unsigned char *)malloc(16);
+  HMAC(EVP_md5(), key, 11, original_ros_msg_serialized, original_ros_msg_length, computed_hmac, NULL);
+  // computed_hmac now contains the hmac computed from the original ros 
+  // message in serialized form
+
+  unsigned char * received_hmac = (unsigned char *)malloc(16);
+  memcpy(received_hmac, serialized_message->buffer + original_ros_msg_length, 16);
+  // received_hmac now contains the last 16 bytes i.e. the received hmac
+
+  if (strncmp((const char *)computed_hmac, (const char *)received_hmac, 16) == 0) {
+    printf("%s: hmac are equal\n", fn_id);
+  }
+
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
   eprosima::fastcdr::FastBuffer buffer(
@@ -186,16 +157,6 @@ rmw_deserialize(
 
   auto ret = tss->deserializeROSmessage(deser, ros_message);
   fprintf(stdout, "%s: serialized message is deserialized\n", fn_id);
-
-  // key must put somewhere else
-  const char * key = (const char *) "01234567890";
-  if (!is_hmac_matched(key, ros_message, serialized_message->buffer_length)) {
-    fprintf(stdout, "%s: hmac does not match, possible alteration/interception of messages\n", fn_id);
-    RMW_SET_ERROR_MSG("hmac does not match, possible alteration/interception of messages");
-    return RMW_RET_ERROR;
-  }
-  fprintf(stdout, "%s: hmac matches, no unauthorised alteration of messages\n", fn_id);
-
   delete tss;
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
 }
