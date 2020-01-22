@@ -53,7 +53,7 @@ rmw_serialize(
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
   auto original_data_length = tss->getEstimatedSerializedSize(ros_message);
-  auto data_length = original_data_length + 16;
+  auto data_length = original_data_length + 17;
   if (serialized_message->buffer_capacity < data_length) {
     if (rmw_serialized_message_resize(serialized_message, data_length) != RMW_RET_OK) {
       RMW_SET_ERROR_MSG("unable to dynamically resize serialized message");
@@ -84,6 +84,13 @@ rmw_serialize(
   // the hmac is obtained from serialized_orig_ros_msg and appended to the end 
   // of the serialized original ros message
   
+  // rand_int_counter gets the counter passed to it via
+  // serialized_message->counter field, and makes it the last
+  // byte in the buffer to ensure safe transmission to other node
+  unsigned char * rand_int_counter = (unsigned char *)&serialized_message->counter;
+  memcpy(serialized_message->buffer+(original_data_length + 16), rand_int_counter, 1);
+  printf("%s: rand_int_counter: %d\n", fn_id, *rand_int_counter);
+
   // debug statement to find out the contents of the serialized message buffer 
   // while in the rmw_serialize fn
   printf("%s: serialized buffer: ", fn_id);
@@ -91,7 +98,6 @@ rmw_serialize(
     printf("%02x ", serialized_message->buffer[i]);
   }
   printf("\n");
-
   printf("%s: serialized data_length: %ldend\n", fn_id, data_length);
 
   delete tss;
@@ -132,13 +138,20 @@ rmw_deserialize(
 
   const char * key = (const char *) "01234567890";
 
-  int original_ros_msg_length = serialized_message->buffer_length - 18;
+  // 19 = (length of hmac which is 16) + (1 rand_int counter byte) + (2 extra bytes at end)
+  int original_ros_msg_length = serialized_message->buffer_length - 19;
   unsigned char * original_ros_msg_serialized = (unsigned char *)malloc(original_ros_msg_length);
   memcpy(original_ros_msg_serialized, serialized_message->buffer, original_ros_msg_length);
   unsigned char * computed_hmac = (unsigned char *)malloc(16);
   HMAC(EVP_md5(), key, 11, original_ros_msg_serialized, original_ros_msg_length, computed_hmac, NULL);
   // computed_hmac now contains the hmac computed from the original ros 
   // message in serialized form
+
+  // extract the rand_int counter from the third last byte of the buffer,
+  // insert into serialized_message->counter field to transfer to subscriber node
+  // int rand_int_counter = (int)serialized_message->buffer[original_ros_msg_length + 16];
+  // serialized_message->counter = rand_int_counter;
+  // THIS CANNOT BE CARRIED OUT AS serialized_message IS const
 
   unsigned char * received_hmac = (unsigned char *)malloc(16);
   memcpy(received_hmac, serialized_message->buffer + original_ros_msg_length, 16);
@@ -156,8 +169,14 @@ rmw_deserialize(
     eprosima::fastcdr::Cdr::DDS_CDR);
 
   auto ret = tss->deserializeROSmessage(deser, ros_message);
-  fprintf(stdout, "%s: serialized message is deserialized\n", fn_id);
+  fprintf(stdout, "%s: deserialized_message: %send\n", fn_id, (char *)ros_message);
   delete tss;
+
+  // Clean up everything that I have malloced
+  free(original_ros_msg_serialized);
+  free(computed_hmac);
+  free(received_hmac);
+
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
 }
 
