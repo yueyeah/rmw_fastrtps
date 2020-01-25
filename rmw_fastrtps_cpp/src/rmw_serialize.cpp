@@ -42,7 +42,7 @@ rmw_serialize(
   rmw_serialized_message_t * serialized_message)
 {
   char fn_id[] = "rmw_serialize";
-  printf("\nJust entered %s\n", fn_id);
+  printf("Just entered %s\n", fn_id);
   
   printf("%s: ros_message is %send\n", fn_id, (const char *) ros_message);
   const rosidl_message_type_support_t * ts = get_message_typesupport_handle(
@@ -129,7 +129,7 @@ rmw_deserialize(
   void * ros_message)
 {
   char fn_id[] = "rmw_deserialize";
-  fprintf(stdout, "\nJust entered %s\n", fn_id);
+  fprintf(stdout, "Just entered %s\n", fn_id);
   const rosidl_message_type_support_t * ts = get_message_typesupport_handle(
     type_support, RMW_FASTRTPS_CPP_TYPESUPPORT_C);
   if (!ts) {
@@ -152,7 +152,7 @@ rmw_deserialize(
   const char * key = (const char *) "01234567890";
 
   // 19 = (length of hmac which is 16) + (1 rand_int counter byte) + (2 extra bytes at end)
-  int original_ros_msg_length = serialized_message->buffer_length - 19;
+  int original_ros_msg_length = serialized_message->buffer_length - 18;
   unsigned char * original_ros_msg_serialized = (unsigned char *)malloc(original_ros_msg_length);
   memcpy(original_ros_msg_serialized, serialized_message->buffer, original_ros_msg_length);
   unsigned char * computed_hmac = (unsigned char *)malloc(16);
@@ -172,6 +172,8 @@ rmw_deserialize(
 
   if (strncmp((const char *)computed_hmac, (const char *)received_hmac, 16) == 0) {
     printf("%s: hmac are equal\n", fn_id);
+  } else {
+    printf("%s: hmac are not equal, possible interception/alteration\n", fn_id);
   }
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
