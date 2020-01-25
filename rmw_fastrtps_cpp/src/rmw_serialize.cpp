@@ -27,6 +27,14 @@
 extern "C"
 {
 
+/**
+ * Serialize a ROS message into a rmw_serialized_message_t. ROS message is serialized into
+ * a byte stream contained within rmw_serialized_message_t structure. Serialization format 
+ * depends on underlying middleware. 
+ * \@param ros_message The typed ROS message.
+ * \@param type_support The typesupport for the ROS message.
+ * \@param serialized_message The destination for the serialize ROS message. 
+ */
 rmw_ret_t
 rmw_serialize(
   const void * ros_message,
@@ -47,7 +55,6 @@ rmw_serialize(
       return RMW_RET_ERROR;
     }
   }
-  // assert(type support checked)
   printf("%s: type support is checked\n", fn_id);
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
@@ -60,8 +67,6 @@ rmw_serialize(
       return RMW_RET_ERROR;
     }
   }
-  // assert(able to dynamically resize serialised message if message bigger than buffer)
-  // assert(serialised message can fit in buffer)
   printf("%s: serialized message can fit in buffer.\n", fn_id);
 
   // Serializing the ros_message
@@ -103,12 +108,20 @@ rmw_serialize(
   delete tss;
 
   // Clean up everything that I have malloced
-  //free(new_ros_message);
   free(hmac);
 
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
 }
 
+/**
+ * Deserialize a ROS message. The given rmw_serialized_message_t's internal byte stream 
+ * buffer is deserialized into given ROS message. The ROS message must already be allocated
+ * and initialized, and must match the given typesupport structure. The serialization 
+ * format expected in the rmw_serialized_message_t depends on the underlying middleware. 
+ * \@param serialized_message The serialized message holding the byte stream. 
+ * \@param type_support The typesupport for the typed ros message. 
+ * \@param ros_message Destination for the deserialized ROS message. 
+ */
 rmw_ret_t
 rmw_deserialize(
   const rmw_serialized_message_t * serialized_message,
