@@ -44,7 +44,6 @@ rmw_serialize(
   char fn_id[] = "rmw_serialize";
   printf("Just entered %s\n", fn_id);
   
-  printf("%s: ros_message is %send\n", fn_id, (const char *) ros_message);
   const rosidl_message_type_support_t * ts = get_message_typesupport_handle(
     type_support, RMW_FASTRTPS_CPP_TYPESUPPORT_C);
   if (!ts) {
@@ -55,11 +54,11 @@ rmw_serialize(
       return RMW_RET_ERROR;
     }
   }
-  printf("%s: type support is checked\n", fn_id);
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
   auto original_data_length = tss->getEstimatedSerializedSize(ros_message);
+  // 16 bytes for the length of the MD5 digest, 1 byte for the length
   auto data_length = original_data_length + 17;
   if (serialized_message->buffer_capacity < data_length) {
     if (rmw_serialized_message_resize(serialized_message, data_length) != RMW_RET_OK) {
@@ -67,7 +66,6 @@ rmw_serialize(
       return RMW_RET_ERROR;
     }
   }
-  printf("%s: serialized message can fit in buffer.\n", fn_id);
 
   // Serializing the ros_message
   eprosima::fastcdr::FastBuffer buffer(
@@ -78,37 +76,29 @@ rmw_serialize(
   serialized_message->buffer_length = data_length;
   serialized_message->buffer_capacity = data_length;
 
+  // serialized_orig_ros_msg stores the serialized original ros message for 
+  // computing hmac
   unsigned char * serialized_orig_ros_msg = (unsigned char *)malloc(original_data_length);
   memcpy(serialized_orig_ros_msg, serialized_message->buffer, original_data_length);
-  // serialized_orig_ros_msg now contains serialized original ros message.
-
+ 
+  // the hmac is obtained from serialized_orig_ros_msg and appended to the end 
+  // of the serialized original ros message
   const char * key = "01234567890";
   unsigned char * hmac = (unsigned char *)malloc(16);
   HMAC(EVP_md5(), key, 11, serialized_orig_ros_msg, original_data_length, hmac, NULL);
-  memcpy(serialized_message->buffer+(original_data_length), hmac, 16);
-  // the hmac is obtained from serialized_orig_ros_msg and appended to the end 
-  // of the serialized original ros message
-  
-  // rand_int_counter gets the counter passed to it via
-  // serialized_message->counter field, and makes it the last
-  // byte in the buffer to ensure safe transmission to other node
-  unsigned char * rand_int_counter = (unsigned char *)&serialized_message->counter;
-  memcpy(serialized_message->buffer+(original_data_length + 16), rand_int_counter, 1);
-  printf("%s: rand_int_counter: %d\n", fn_id, *rand_int_counter);
 
-  // debug statement to find out the contents of the serialized message buffer 
-  // while in the rmw_serialize fn
-  printf("%s: serialized buffer: ", fn_id);
-  for (size_t i = 0; i < serialized_message->buffer_length; ++i) {
-    printf("%02x ", serialized_message->buffer[i]);
-  }
-  printf("\n");
-  printf("%s: serialized data_length: %ldend\n", fn_id, data_length);
+  // reorder the serialized_message buffer such that it is (1 byte of size) +  
+  // (16 bytes of hmac) + (rest of the bytes made up of original serialized 
+  // ros msg)
+  serialized_message->buffer[0] = (unsigned char) data_length;
+  memcpy(serialized_message->buffer+1, hmac, 16);
+  memcpy(serialized_message->buffer + 17, serialized_orig_ros_msg, original_data_length);
 
   delete tss;
 
   // Clean up everything that I have malloced
   free(hmac);
+  free(serialized_orig_ros_msg);
 
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
 }
@@ -140,41 +130,38 @@ rmw_deserialize(
       return RMW_RET_ERROR;
     }
   }
-  fprintf(stdout, "%s: checked message_typesupport\n", fn_id);
-
-  // debug statement in rmw_deserialize, print out buffer before deserializing
-  printf("%s: serialized buffer: ", fn_id);
-  for (size_t i = 0; i < serialized_message->buffer_length; ++i) {
-    printf("%02x ", serialized_message->buffer[i]);
-  }
-  printf("\n");
 
   const char * key = (const char *) "01234567890";
 
-  // 19 = (length of hmac which is 16) + (1 rand_int counter byte) + (2 extra bytes at end)
-  int original_ros_msg_length = serialized_message->buffer_length - 18;
-  unsigned char * original_ros_msg_serialized = (unsigned char *)malloc(original_ros_msg_length);
-  memcpy(original_ros_msg_serialized, serialized_message->buffer, original_ros_msg_length);
+  // Get the length of the actual message by reading the 1st byte
+  int actual_ser_msg_len = (int)serialized_message->buffer[0];
+
+  // received_hmac stores the 16 bytes after the first byte i.e.
+  // the received hmac bundled together in the serialized_message buffer
+  unsigned char * received_hmac = (unsigned char *)malloc(16);
+  memcpy(received_hmac, serialized_message->buffer+1, 16);
+
+  // calculate the length of the serialized ros message by using 
+  // the already derived actual_ser_msg_len
+  int original_ros_msg_len = actual_ser_msg_len - 17;
+  unsigned char * original_ros_msg_serialized = (unsigned char *)malloc(original_ros_msg_len);
+  memcpy(original_ros_msg_serialized, serialized_message->buffer+17, original_ros_msg_len);
+
   unsigned char * computed_hmac = (unsigned char *)malloc(16);
-  HMAC(EVP_md5(), key, 11, original_ros_msg_serialized, original_ros_msg_length, computed_hmac, NULL);
+  HMAC(EVP_md5(), key, 11, original_ros_msg_serialized, original_ros_msg_len, computed_hmac, NULL);
   // computed_hmac now contains the hmac computed from the original ros 
   // message in serialized form
-
-  // extract the rand_int counter from the third last byte of the buffer,
-  // insert into serialized_message->counter field to transfer to subscriber node
-  // int rand_int_counter = (int)serialized_message->buffer[original_ros_msg_length + 16];
-  // serialized_message->counter = rand_int_counter;
-  // THIS CANNOT BE CARRIED OUT AS serialized_message IS const
-
-  unsigned char * received_hmac = (unsigned char *)malloc(16);
-  memcpy(received_hmac, serialized_message->buffer + original_ros_msg_length, 16);
-  // received_hmac now contains the last 16 bytes i.e. the received hmac
 
   if (strncmp((const char *)computed_hmac, (const char *)received_hmac, 16) == 0) {
     printf("%s: hmac are equal\n", fn_id);
   } else {
     printf("%s: hmac are not equal, possible interception/alteration\n", fn_id);
   }
+
+  // convert serialized_message->buffer into original_ros_msg_serialized,
+  // and pad the rest with x00 bytes
+  memset(serialized_message->buffer, 0, serialized_message->buffer_length);
+  memcpy(serialized_message->buffer, original_ros_msg_serialized, original_ros_msg_len);
 
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
@@ -184,7 +171,7 @@ rmw_deserialize(
     eprosima::fastcdr::Cdr::DDS_CDR);
 
   auto ret = tss->deserializeROSmessage(deser, ros_message);
-  fprintf(stdout, "%s: deserialized_message: %send\n", fn_id, (char *)ros_message);
+  printf("%s: deserialized_message: %send\n", fn_id, (char *)ros_message);
   delete tss;
 
   // Clean up everything that I have malloced
