@@ -58,8 +58,9 @@ rmw_serialize(
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
   auto original_data_length = tss->getEstimatedSerializedSize(ros_message);
-  // 16 bytes for the length of the MD5 digest, 1 byte for the length
-  auto data_length = original_data_length + 17;
+  // 16 bytes for the length of the MD5 digest, 1 byte for the length,
+  // 1 extra byte for additional information such as counter
+  auto data_length = original_data_length + 18;
   if (serialized_message->buffer_capacity < data_length) {
     if (rmw_serialized_message_resize(serialized_message, data_length) != RMW_RET_OK) {
       RMW_SET_ERROR_MSG("unable to dynamically resize serialized message");
@@ -146,6 +147,12 @@ rmw_deserialize(
   int original_ros_msg_len = actual_ser_msg_len - 17;
   unsigned char * original_ros_msg_serialized = (unsigned char *)malloc(original_ros_msg_len);
   memcpy(original_ros_msg_serialized, serialized_message->buffer+17, original_ros_msg_len);
+
+  printf("%s: received ser ros msg: ", fn_id);
+  for (int a = 0; a < original_ros_msg_len; a++) {
+    printf("%02x ", original_ros_msg_serialized[a]);
+  }
+  printf("\n");
 
   unsigned char * computed_hmac = (unsigned char *)malloc(16);
   HMAC(EVP_md5(), key, 11, original_ros_msg_serialized, original_ros_msg_len, computed_hmac, NULL);
