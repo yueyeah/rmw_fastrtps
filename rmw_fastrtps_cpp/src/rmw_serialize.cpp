@@ -81,7 +81,7 @@ rmw_serialize(
   // computing hmac
   unsigned char * serialized_orig_ros_msg = (unsigned char *)malloc(original_data_length);
   memcpy(serialized_orig_ros_msg, serialized_message->buffer, original_data_length);
- 
+
   // the hmac is obtained from serialized_orig_ros_msg and appended to the end 
   // of the serialized original ros message
   const char * key = "01234567890";
@@ -144,15 +144,10 @@ rmw_deserialize(
 
   // calculate the length of the serialized ros message by using 
   // the already derived actual_ser_msg_len
-  int original_ros_msg_len = actual_ser_msg_len - 17;
+  // 18 = (1 len byte) + (16 hmac bytes) + (1 additional info byte)
+  int original_ros_msg_len = actual_ser_msg_len - 18;
   unsigned char * original_ros_msg_serialized = (unsigned char *)malloc(original_ros_msg_len);
   memcpy(original_ros_msg_serialized, serialized_message->buffer+17, original_ros_msg_len);
-
-  printf("%s: received ser ros msg: ", fn_id);
-  for (int a = 0; a < original_ros_msg_len; a++) {
-    printf("%02x ", original_ros_msg_serialized[a]);
-  }
-  printf("\n");
 
   unsigned char * computed_hmac = (unsigned char *)malloc(16);
   HMAC(EVP_md5(), key, 11, original_ros_msg_serialized, original_ros_msg_len, computed_hmac, NULL);
@@ -178,7 +173,6 @@ rmw_deserialize(
     eprosima::fastcdr::Cdr::DDS_CDR);
 
   auto ret = tss->deserializeROSmessage(deser, ros_message);
-  printf("%s: deserialized_message: %send\n", fn_id, (char *)ros_message);
   delete tss;
 
   // Clean up everything that I have malloced
