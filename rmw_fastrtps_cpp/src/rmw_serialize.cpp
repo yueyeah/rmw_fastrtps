@@ -42,6 +42,8 @@ rmw_serialize(
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
   auto data_length = tss->getEstimatedSerializedSize(ros_message);
+  // change serialized message size to 500
+  data_length = 500;
   if (serialized_message->buffer_capacity < data_length) {
     if (rmw_serialized_message_resize(serialized_message, data_length) != RMW_RET_OK) {
       RMW_SET_ERROR_MSG("unable to dynamically resize serialized message");
@@ -57,6 +59,10 @@ rmw_serialize(
   auto ret = tss->serializeROSmessage(ros_message, ser);
   serialized_message->buffer_length = data_length;
   serialized_message->buffer_capacity = data_length;
+
+  // inserting 500 bytes of 0 into message buffer
+  memset(serialized_message->buffer, 0, 500);
+
   delete tss;
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
 }
