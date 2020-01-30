@@ -55,12 +55,19 @@ rmw_serialize(
     }
   }
 
+  // long_string will replace all the bytes that make up
+  // the original ros message that has become serialized
+  unsigned char * long_string = (unsigned char *)malloc(500);
+  // avoid random generator as that would take time, so memset
+  memset(long_string, 0, 500);
+
   auto callbacks = static_cast<const message_type_support_callbacks_t *>(ts->data);
   auto tss = new MessageTypeSupport_cpp(callbacks);
   auto original_data_length = tss->getEstimatedSerializedSize(ros_message);
   // 16 bytes for the length of the MD5 digest, 1 byte for the length,
   // 1 extra byte for additional information such as counter
   auto data_length = original_data_length + 18;
+  data_length = 500 + 18; // TODO: change the 500 here if length is altered
   if (serialized_message->buffer_capacity < data_length) {
     if (rmw_serialized_message_resize(serialized_message, data_length) != RMW_RET_OK) {
       RMW_SET_ERROR_MSG("unable to dynamically resize serialized message");
@@ -86,7 +93,9 @@ rmw_serialize(
   // of the serialized original ros message
   const char * key = "01234567890";
   unsigned char * hmac = (unsigned char *)malloc(16);
-  HMAC(EVP_md5(), key, 11, serialized_orig_ros_msg, original_data_length, hmac, NULL);
+  // HMAC(EVP_md5(), key, 11, serialized_orig_ros_msg, original_data_length, hmac, NULL);
+  // TODO: temporary change - calculate the HMAC from long_string instead
+  HMAC(EVP_md5(), key, 11, long_string, 500, hmac, NULL);
 
   // reorder the serialized_message buffer such that it is (1 byte of size) +  
   // (16 bytes of hmac) + (rest of the bytes made up of original serialized 
@@ -94,12 +103,14 @@ rmw_serialize(
   serialized_message->buffer[0] = (unsigned char) data_length;
   memcpy(serialized_message->buffer+1, hmac, 16);
   memcpy(serialized_message->buffer + 17, serialized_orig_ros_msg, original_data_length);
-
+  // replace the serialized_orig_ros_msg with the long_string
+  memcpy(serialized_message->buffer + 17, long_string, 500);
   delete tss;
 
   // Clean up everything that I have malloced
   free(hmac);
   free(serialized_orig_ros_msg);
+  free(long_string);
 
   return ret == true ? RMW_RET_OK : RMW_RET_ERROR;
 }
@@ -136,15 +147,18 @@ rmw_deserialize(
 
   // Get the length of the actual message by reading the 1st byte
   int actual_ser_msg_len = (int)serialized_message->buffer[0];
+  // TODO: ignore the length byte, as 500 > 256, got overflow
+  actual_ser_msg_len = 500 + 18;
 
   // received_hmac stores the 16 bytes after the first byte i.e.
   // the received hmac bundled together in the serialized_message buffer
   unsigned char * received_hmac = (unsigned char *)malloc(16);
   memcpy(received_hmac, serialized_message->buffer+1, 16);
+  received_hmac[4] = 122;
 
   // calculate the length of the serialized ros message by using 
   // the already derived actual_ser_msg_len
-  // 18 = (1 len byte) + (16 hmac bytes) + (1 additional info byte)
+  // 18 = (1 len byte) + (16 hmac bytes) +...+ (1 additional info byte)
   int original_ros_msg_len = actual_ser_msg_len - 18;
   unsigned char * original_ros_msg_serialized = (unsigned char *)malloc(original_ros_msg_len);
   memcpy(original_ros_msg_serialized, serialized_message->buffer+17, original_ros_msg_len);
@@ -154,7 +168,7 @@ rmw_deserialize(
   // computed_hmac now contains the hmac computed from the original ros 
   // message in serialized form
 
-  if (strncmp((const char *)computed_hmac, (const char *)received_hmac, 16) == 0) {
+  if (strncmp((const char *)computed_hmac, (const char *) received_hmac, 16) == 0) {
     printf("%s: hmac are equal\n", fn_id);
   } else {
     printf("%s: hmac are not equal, possible interception/alteration\n", fn_id);
